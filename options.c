@@ -342,17 +342,29 @@ fw3_parse_network(void *ptr, const char *val, bool is_list)
 	struct fw3_device dev = { };
 	struct fw3_address *addr, *tmp;
 	LIST_HEAD(addr_list);
+	int n_addrs;
 
 	if (!fw3_parse_address(ptr, val, is_list))
 	{
 		if (!fw3_parse_device(&dev, val, false))
 			return false;
 
-		fw3_ubus_address(&addr_list, dev.name);
+		n_addrs = fw3_ubus_address(&addr_list, dev.name);
+
 		list_for_each_entry(addr, &addr_list, list)
 		{
 			addr->invert = dev.invert;
 			addr->resolved = true;
+		}
+
+		/* add an empty address member with .set = false, .resolved = true
+		 * to signal resolving failure to callers */
+		if (n_addrs == 0)
+		{
+			tmp = fw3_alloc(sizeof(*tmp));
+			tmp->resolved = true;
+
+			list_add_tail(&tmp->list, &addr_list);
 		}
 
 		if (is_list)
