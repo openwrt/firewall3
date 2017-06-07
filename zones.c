@@ -105,6 +105,26 @@ check_policy(struct uci_element *e, enum fw3_flag *pol, enum fw3_flag def,
 	}
 }
 
+static bool
+check_masq_addrs(struct list_head *head)
+{
+	struct fw3_address *addr;
+	int n_addr = 0, n_failed = 0;
+
+	list_for_each_entry(addr, head, list)
+	{
+		if (addr->invert)
+			continue;
+
+		n_addr++;
+
+		if (!addr->set && addr->resolved)
+			n_failed++;
+	}
+
+	return (n_addr == 0 || n_failed < n_addr);
+}
+
 static void
 resolve_networks(struct uci_element *e, struct fw3_zone *zone)
 {
@@ -207,6 +227,18 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 		    list_empty(&zone->subnets) && !zone->extra_src)
 		{
 			warn_elem(e, "has no device, network, subnet or extra options");
+		}
+
+		if (!check_masq_addrs(&zone->masq_src))
+		{
+			warn_elem(e, "has unresolved masq_src, disabling masq");
+			zone->masq = false;
+		}
+
+		if (!check_masq_addrs(&zone->masq_dest))
+		{
+			warn_elem(e, "has unresolved masq_dest, disabling masq");
+			zone->masq = false;
 		}
 
 		check_policy(e, &zone->policy_input, defs->policy_input, "input");
@@ -480,7 +512,7 @@ next_addr(struct fw3_address *addr, struct list_head *list,
 	{
 		rv = list_entry(p, struct fw3_address, list);
 
-		if (fw3_is_family(rv, family) && rv->invert == invert)
+		if (fw3_is_family(rv, family) && rv->set && rv->invert == invert)
 			return rv;
 	}
 
