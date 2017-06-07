@@ -103,16 +103,16 @@ parse_subnet(enum fw3_family family, struct blob_attr *dict, int rem)
 	return addr;
 }
 
-static void
+static int
 parse_subnets(struct list_head *head, enum fw3_family family,
               struct blob_attr *list)
 {
 	struct blob_attr *cur;
 	struct fw3_address *addr;
-	int rem;
+	int rem, n = 0;
 
 	if (!list)
-		return;
+		return 0;
 
 	rem = blobmsg_data_len(list);
 
@@ -121,8 +121,13 @@ parse_subnets(struct list_head *head, enum fw3_family family,
 		addr = parse_subnet(family, blobmsg_data(cur), blobmsg_data_len(cur));
 
 		if (addr)
+		{
 			list_add_tail(&addr->list, head);
+			n++;
+		}
 	}
+
+	return n;
 }
 
 struct fw3_device *
@@ -178,7 +183,7 @@ fw3_ubus_device(const char *net)
 	return dev;
 }
 
-void
+int
 fw3_ubus_address(struct list_head *list, const char *net)
 {
 	enum {
@@ -196,10 +201,10 @@ fw3_ubus_address(struct list_head *list, const char *net)
 	};
 	struct blob_attr *tb[__ADDR_MAX];
 	struct blob_attr *cur;
-	int rem;
+	int rem, n = 0;
 
 	if (!net || !interfaces)
-		return;
+		return 0;
 
 	blobmsg_for_each_attr(cur, interfaces, rem) {
 		blobmsg_parse(policy, __ADDR_MAX, tb, blobmsg_data(cur), blobmsg_len(cur));
@@ -208,10 +213,12 @@ fw3_ubus_address(struct list_head *list, const char *net)
 		    strcmp(blobmsg_data(tb[ADDR_INTERFACE]), net) != 0)
 			continue;
 
-		parse_subnets(list, FW3_FAMILY_V4, tb[ADDR_IPV4]);
-		parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6]);
-		parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6_PREFIX]);
+		n += parse_subnets(list, FW3_FAMILY_V4, tb[ADDR_IPV4]);
+		n += parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6]);
+		n += parse_subnets(list, FW3_FAMILY_V6, tb[ADDR_IPV6_PREFIX]);
 	}
+
+	return n;
 }
 
 void
