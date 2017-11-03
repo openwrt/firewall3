@@ -240,14 +240,47 @@ fw3_ubus_zone_devices(struct fw3_zone *zone)
 	}
 }
 
+static void fw3_ubus_rules_add(struct blob_buf *b, const char *service,
+		const char *instance, const char *device,
+		const struct blob_attr *rule, unsigned n)
+{
+	void *k = blobmsg_open_table(b, "");
+	struct blob_attr *ropt;
+	unsigned orem;
+	char *type = NULL;
+	char comment[256];
+
+	blobmsg_for_each_attr(ropt, rule, orem) {
+		if (!strcmp(blobmsg_name(ropt), "type"))
+			type = blobmsg_data(ropt);
+		if (device && !strcmp(blobmsg_name(ropt), "device"))
+			device = blobmsg_get_string(ropt);
+		else if (strcmp(blobmsg_name(ropt), "name"))
+			blobmsg_add_blob(b, ropt);
+	}
+
+	if (instance)
+		snprintf(comment, sizeof(comment), "ubus:%s[%s] %s %d",
+				service, instance, type ? type : "rule", n);
+	else
+		snprintf(comment, sizeof(comment), "ubus:%s %s %d",
+				service, type ? type : "rule", n);
+
+	blobmsg_add_string(b, "name", comment);
+
+	if (device)
+		blobmsg_add_string(b, "device", device);
+
+	blobmsg_close_table(b, k);
+}
+
 void
 fw3_ubus_rules(struct blob_buf *b)
 {
 	blob_buf_init(b, 0);
 
-	struct blob_attr *c, *cur, *dcur, *rule, *ropt;
-	unsigned n, r, rem, drem, rrem, orem;
-	char comment[256];
+	struct blob_attr *c, *cur, *dcur, *rule;
+	unsigned n, r, rem, drem, rrem;
 
 	blobmsg_for_each_attr(c, interfaces, r) {
 		const char *l3_device = NULL;
@@ -275,28 +308,9 @@ fw3_ubus_rules(struct blob_buf *b)
 
 			n = 0;
 
-			blobmsg_for_each_attr(rule, dcur, rrem) {
-				void *k = blobmsg_open_table(b, "");
-				char *type = NULL;
-
-				blobmsg_for_each_attr(ropt, rule, orem) {
-					if (!strcmp(blobmsg_name(ropt), "type"))
-						type = blobmsg_data(ropt);
-					if (!strcmp(blobmsg_name(ropt), "device"))
-						l3_device = blobmsg_get_string(ropt);
-					else if (strcmp(blobmsg_name(ropt), "name"))
-						blobmsg_add_blob(b, ropt);
-				}
-
-				snprintf(comment, sizeof(comment), "ubus:%s[%s] %s %d",
-						iface_name, iface_proto,
-						type ? type : "rule", n++);
-
-				blobmsg_add_string(b, "name", comment);
-
-				blobmsg_add_string(b, "device", l3_device);
-				blobmsg_close_table(b, k);
-			}
+			blobmsg_for_each_attr(rule, dcur, rrem)
+				fw3_ubus_rules_add(b, iface_name, iface_proto,
+					l3_device, rule, n++);
 		}
 	}
 
@@ -313,31 +327,30 @@ fw3_ubus_rules(struct blob_buf *b)
 			if (!blobmsg_check_attr(cur, true))
 				continue;
 
+			/* fw rules within the service itself */
+			if (!strcmp(blobmsg_name(cur), "firewall")) {
+				n = 0;
+
+				blobmsg_for_each_attr(rule, cur, rrem)
+					fw3_ubus_rules_add(b, blobmsg_name(c),
+						NULL, NULL, rule, n++);
+
+				continue;
+			}
+
 			/* type */
 			blobmsg_for_each_attr(dcur, cur, drem) {
 				if (!blobmsg_check_attr(dcur, true))
 					continue;
 
+				if (strcmp(blobmsg_name(dcur), "firewall"))
+					continue;
+
 				n = 0;
 
-				blobmsg_for_each_attr(rule, dcur, rrem) {
-					void *k = blobmsg_open_table(b, "");
-					char *type = NULL;
-
-					blobmsg_for_each_attr(ropt, rule, orem) {
-						if (!strcmp(blobmsg_name(ropt), "type"))
-							type = blobmsg_data(ropt);
-						if (strcmp(blobmsg_name(ropt), "name"))
-							blobmsg_add_blob(b, ropt);
-					}
-
-					snprintf(comment, sizeof(comment), "ubus:%s[%s] %s %d",
-							blobmsg_name(c), blobmsg_name(cur),
-							type ? type : "rule", n++);
-
-					blobmsg_add_string(b, "name", comment);
-					blobmsg_close_table(b, k);
-				}
+				blobmsg_for_each_attr(rule, dcur, rrem)
+					fw3_ubus_rules_add(b, blobmsg_name(c),
+						blobmsg_name(cur), NULL, rule, n++);
 			}
 		}
 	}
