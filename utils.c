@@ -912,3 +912,24 @@ bool fw3_attr_parse_name_type(struct blob_attr *entry, const char **name, const 
 
 	return *type != NULL ? true : false;
 }
+
+const char *
+fw3_protoname(void *proto)
+{
+	static char buf[sizeof("4294967295")];
+	struct fw3_protocol *p = proto;
+	struct protoent *pe;
+
+	if (!p)
+		return "?";
+
+	pe = getprotobynumber(p->protocol);
+
+	if (!pe)
+	{
+		snprintf(buf, sizeof(buf), "%u", p->protocol);
+		return buf;
+	}
+
+	return pe->p_name;
+}

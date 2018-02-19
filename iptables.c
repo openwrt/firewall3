@@ -1026,6 +1026,16 @@ fw3_ipt_rule_ipset(struct fw3_ipt_rule *r, struct fw3_setmatch *match)
 }
 
 void
+fw3_ipt_rule_helper(struct fw3_ipt_rule *r, struct fw3_cthelpermatch *match)
+{
+	if (!match || !match->set || !match->ptr)
+		return;
+
+	fw3_ipt_rule_addarg(r, false, "-m", "helper");
+	fw3_ipt_rule_addarg(r, match->invert, "--helper", match->ptr->name);
+}
+
+void
 fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 {
 	int i;

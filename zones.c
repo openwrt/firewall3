@@ -18,6 +18,7 @@
 
 #include "zones.h"
 #include "ubus.h"
+#include "helpers.h"
 
 
 #define C(f, tbl, tgt, fmt) \
@@ -39,6 +40,7 @@ static const struct fw3_chain_spec zone_chains[] = {
 	C(V4,  NAT,    SNAT,          "zone_%s_postrouting"),
 	C(V4,  NAT,    DNAT,          "zone_%s_prerouting"),
 
+	C(ANY, RAW,    HELPER,        "zone_%s_helper"),
 	C(ANY, RAW,    NOTRACK,       "zone_%s_notrack"),
 
 	C(ANY, FILTER, CUSTOM_CHAINS, "input_%s_rule"),
@@ -79,6 +81,9 @@ const struct fw3_option fw3_zone_opts[] = {
 
 	FW3_OPT("log",                 bool,     zone,     log),
 	FW3_OPT("log_limit",           limit,    zone,     log_limit),
+
+	FW3_OPT("auto_helper",         bool,     zone,     auto_helper),
+	FW3_LIST("helper",             cthelper, zone,     cthelpers),
 
 	FW3_OPT("__flags_v4",          int,      zone,     flags[0]),
 	FW3_OPT("__flags_v6",          int,      zone,     flags[1]),
@@ -145,6 +150,46 @@ resolve_networks(struct uci_element *e, struct fw3_zone *zone)
 	}
 }
 
+static void
+resolve_cthelpers(struct fw3_state *s, struct uci_element *e, struct fw3_zone *zone)
+{
+	struct fw3_cthelpermatch *match;
+
+	if (list_empty(&zone->cthelpers))
+	{
+		if (!zone->masq && zone->auto_helper)
+		{
+			fw3_setbit(zone->flags[0], FW3_FLAG_HELPER);
+			fw3_setbit(zone->flags[1], FW3_FLAG_HELPER);
+		}
+
+		return;
+	}
+
+	list_for_each_entry(match, &zone->cthelpers, list)
+	{
+		if (match->invert)
+		{
+			warn_elem(e, "must not use a negated helper match");
+			continue;
+		}
+
+		match->ptr = fw3_lookup_cthelper(s, match->name);
+
+		if (!match->ptr)
+		{
+			warn_elem(e, "refers to not existing helper '%s'", match->name);
+			continue;
+		}
+
+		if (fw3_is_family(match->ptr, FW3_FAMILY_V4))
+			fw3_setbit(zone->flags[0], FW3_FLAG_HELPER);
+
+		if (fw3_is_family(match->ptr, FW3_FAMILY_V6))
+			fw3_setbit(zone->flags[1], FW3_FLAG_HELPER);
+	}
+}
+
 struct fw3_zone *
 fw3_alloc_zone(void)
 {
@@ -159,10 +204,12 @@ fw3_alloc_zone(void)
 	INIT_LIST_HEAD(&zone->subnets);
 	INIT_LIST_HEAD(&zone->masq_src);
 	INIT_LIST_HEAD(&zone->masq_dest);
+	INIT_LIST_HEAD(&zone->cthelpers);
 
 	INIT_LIST_HEAD(&zone->old_addrs);
 
 	zone->enabled = true;
+	zone->auto_helper = true;
 	zone->custom_chains = true;
 	zone->log_limit.rate = 10;
 
@@ -205,6 +252,9 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 
 		if (!defs->custom_chains && zone->custom_chains)
 			zone->custom_chains = false;
+
+		if (!defs->auto_helper && zone->auto_helper)
+			zone->auto_helper = false;
 
 		if (!zone->name || !*zone->name)
 		{
@@ -258,6 +308,8 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 			fw3_setbit(zone->flags[0], FW3_FLAG_DNAT);
 		}
 
+		resolve_cthelpers(state, e, zone);
+
 		fw3_setbit(zone->flags[0], fw3_to_src_target(zone->policy_input));
 		fw3_setbit(zone->flags[0], zone->policy_forward);
 		fw3_setbit(zone->flags[0], zone->policy_output);
@@ -292,8 +344,6 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 	if (!fw3_is_family(zone, handle->family))
 		return;
-
-	info("   * Zone '%s'", zone->name);
 
 	set(zone->flags, handle->family, handle->table);
 
@@ -471,9 +521,19 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	}
 	else if (handle->table == FW3_TABLE_RAW)
 	{
+		if (has(zone->flags, handle->family, FW3_FLAG_HELPER))
+		{
+			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+			fw3_ipt_rule_comment(r, "%s CT helper assignment", zone->name);
+			fw3_ipt_rule_target(r, "zone_%s_helper", zone->name);
+			fw3_ipt_rule_extra(r, zone->extra_src);
+			fw3_ipt_rule_replace(r, "PREROUTING");
+		}
+
 		if (has(zone->flags, handle->family, FW3_FLAG_NOTRACK))
 		{
 			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+			fw3_ipt_rule_comment(r, "%s CT bypass", zone->name);
 			fw3_ipt_rule_target(r, "zone_%s_notrack", zone->name);
 			fw3_ipt_rule_extra(r, zone->extra_src);
 			fw3_ipt_rule_replace(r, "PREROUTING");
@@ -533,6 +593,8 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 	if (!fw3_is_family(zone, handle->family))
 		return;
+
+	info("   * Zone '%s'", zone->name);
 
 	switch (handle->table)
 	{
@@ -654,6 +716,9 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		break;
 
 	case FW3_TABLE_RAW:
+		fw3_print_cthelpers(handle, state, zone);
+		break;
+
 	case FW3_TABLE_MANGLE:
 		break;
 	}

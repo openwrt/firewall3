@@ -1,7 +1,7 @@
 /*
  * firewall3 - 3rd OpenWrt UCI firewall implementation
  *
- *   Copyright (C) 2013 Jo-Philipp Wich <jo@mein.io>
+ *   Copyright (C) 2018 Jo-Philipp Wich <jo@mein.io>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,27 +16,35 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef __FW3_REDIRECTS_H
-#define __FW3_REDIRECTS_H
+#ifndef __FW3_HELPERS_H
+#define __FW3_HELPERS_H
 
 #include "options.h"
-#include "zones.h"
-#include "ipsets.h"
-#include "helpers.h"
-#include "ubus.h"
+#include "utils.h"
 #include "iptables.h"
 
-extern const struct fw3_option fw3_redirect_opts[];
 
-void fw3_load_redirects(struct fw3_state *state, struct uci_package *p,
-			struct blob_attr *a);
-void fw3_print_redirects(struct fw3_ipt_handle *handle,
-                         struct fw3_state *state);
+extern const struct fw3_option fw3_cthelper_opts[];
 
-static inline void fw3_free_redirect(struct fw3_redirect *redir)
+void
+fw3_load_cthelpers(struct fw3_state *state, struct uci_package *p);
+
+struct fw3_cthelper *
+fw3_lookup_cthelper(struct fw3_state *state, const char *name);
+
+struct fw3_cthelper *
+fw3_lookup_cthelper_by_proto_port(struct fw3_state *state,
+                                  struct fw3_protocol *proto,
+                                  struct fw3_port *port);
+
+void
+fw3_print_cthelpers(struct fw3_ipt_handle *handle, struct fw3_state *state,
+                    struct fw3_zone *zone);
+
+static inline void fw3_free_cthelper(struct fw3_cthelper *helper)
 {
-	list_del(&redir->list);
-	fw3_free_object(redir, fw3_redirect_opts);
+	list_del(&helper->list);
+	fw3_free_object(helper, fw3_cthelper_opts);
 }
 
 #endif

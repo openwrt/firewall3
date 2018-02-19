@@ -87,6 +87,8 @@ void fw3_ipt_rule_limit(struct fw3_ipt_rule *r, struct fw3_limit *limit);
 
 void fw3_ipt_rule_ipset(struct fw3_ipt_rule *r, struct fw3_setmatch *match);
 
+void fw3_ipt_rule_helper(struct fw3_ipt_rule *r, struct fw3_cthelpermatch *match);
+
 void fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time);
 
 void fw3_ipt_rule_mark(struct fw3_ipt_rule *r, struct fw3_mark *mark);

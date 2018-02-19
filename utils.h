@@ -30,6 +30,7 @@
 #include <sys/file.h>
 #include <sys/types.h>
 #include <ifaddrs.h>
+#include <netdb.h>
 
 #include <libubox/list.h>
 #include <libubox/blob.h>
@@ -38,6 +39,7 @@
 
 #define FW3_STATEFILE	"/var/run/fw3.state"
 #define FW3_LOCKFILE	"/var/run/fw3.lock"
+#define FW3_HELPERCONF	"/usr/share/fw3/helpers.conf"
 #define FW3_HOTPLUG     "/sbin/hotplug-call"
 
 extern bool fw3_pr_debug;
@@ -115,5 +117,7 @@ bool fw3_bitlen2netmask(int family, int bits, void *mask);
 void fw3_flush_conntrack(void *zone);
 
 bool fw3_attr_parse_name_type(struct blob_attr *entry, const char **name, const char **type);
+
+const char * fw3_protoname(void *proto);
 
 #endif

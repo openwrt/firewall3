@@ -71,18 +71,19 @@ enum fw3_flag
 	FW3_FLAG_REJECT        = 7,
 	FW3_FLAG_DROP          = 8,
 	FW3_FLAG_NOTRACK       = 9,
-	FW3_FLAG_MARK          = 10,
-	FW3_FLAG_DNAT          = 11,
-	FW3_FLAG_SNAT          = 12,
-	FW3_FLAG_MASQUERADE    = 13,
-	FW3_FLAG_SRC_ACCEPT    = 14,
-	FW3_FLAG_SRC_REJECT    = 15,
-	FW3_FLAG_SRC_DROP      = 16,
-	FW3_FLAG_CUSTOM_CHAINS = 17,
-	FW3_FLAG_SYN_FLOOD     = 18,
-	FW3_FLAG_MTU_FIX       = 19,
-	FW3_FLAG_DROP_INVALID  = 20,
-	FW3_FLAG_HOTPLUG       = 21,
+	FW3_FLAG_HELPER        = 10,
+	FW3_FLAG_MARK          = 11,
+	FW3_FLAG_DNAT          = 12,
+	FW3_FLAG_SNAT          = 13,
+	FW3_FLAG_MASQUERADE    = 14,
+	FW3_FLAG_SRC_ACCEPT    = 15,
+	FW3_FLAG_SRC_REJECT    = 16,
+	FW3_FLAG_SRC_DROP      = 17,
+	FW3_FLAG_CUSTOM_CHAINS = 18,
+	FW3_FLAG_SYN_FLOOD     = 19,
+	FW3_FLAG_MTU_FIX       = 20,
+	FW3_FLAG_DROP_INVALID  = 21,
+	FW3_FLAG_HOTPLUG       = 22,
 
 	__FW3_FLAG_MAX
 };
@@ -258,6 +259,16 @@ struct fw3_mark
 	uint32_t mask;
 };
 
+struct fw3_cthelpermatch
+{
+	struct list_head list;
+
+	bool set;
+	bool invert;
+	char name[32];
+	struct fw3_cthelper *ptr;
+};
+
 struct fw3_defaults
 {
 	enum fw3_flag policy_input;
@@ -277,6 +288,7 @@ struct fw3_defaults
 	bool accept_source_route;
 
 	bool custom_chains;
+	bool auto_helper;
 
 	bool disable_ipv6;
 
@@ -310,10 +322,13 @@ struct fw3_zone
 
 	bool mtu_fix;
 
+	struct list_head cthelpers;
+
 	bool log;
 	struct fw3_limit log_limit;
 
 	bool custom_chains;
+	bool auto_helper;
 
 	uint32_t flags[2];
 
@@ -338,6 +353,7 @@ struct fw3_rule
 	struct fw3_device src;
 	struct fw3_device dest;
 	struct fw3_setmatch ipset;
+	struct fw3_cthelpermatch helper;
 
 	struct list_head proto;
 
@@ -357,6 +373,7 @@ struct fw3_rule
 	enum fw3_flag target;
 	struct fw3_mark set_mark;
 	struct fw3_mark set_xmark;
+	struct fw3_cthelpermatch set_helper;
 
 	const char *extra;
 };
@@ -376,6 +393,7 @@ struct fw3_redirect
 	struct fw3_device src;
 	struct fw3_device dest;
 	struct fw3_setmatch ipset;
+	struct fw3_cthelpermatch helper;
 
 	struct list_head proto;
 
@@ -415,6 +433,7 @@ struct fw3_snat
 
 	struct fw3_device src;
 	struct fw3_setmatch ipset;
+	struct fw3_cthelpermatch helper;
 	const char *device;
 
 	struct list_head proto;
@@ -493,6 +512,19 @@ struct fw3_include
 	bool reload;
 };
 
+struct fw3_cthelper
+{
+	struct list_head list;
+
+	bool enabled;
+	const char *name;
+	const char *module;
+	const char *description;
+	enum fw3_family family;
+	struct fw3_protocol proto;
+	struct fw3_port port;
+};
+
 struct fw3_state
 {
 	struct uci_context *uci;
@@ -504,6 +536,7 @@ struct fw3_state
 	struct list_head forwards;
 	struct list_head ipsets;
 	struct list_head includes;
+	struct list_head cthelpers;
 
 	bool disable_ipsets;
 	bool statefile;
@@ -559,6 +592,7 @@ bool fw3_parse_monthdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
 bool fw3_parse_setmatch(void *ptr, const char *val, bool is_list);
 bool fw3_parse_direction(void *ptr, const char *val, bool is_list);
+bool fw3_parse_cthelper(void *ptr, const char *val, bool is_list);
 
 bool fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);

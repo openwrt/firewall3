@@ -22,6 +22,7 @@
 #include "options.h"
 #include "zones.h"
 #include "ipsets.h"
+#include "helpers.h"
 #include "utils.h"
 #include "iptables.h"
 

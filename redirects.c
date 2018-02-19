@@ -1,7 +1,7 @@
 /*
  * firewall3 - 3rd OpenWrt UCI firewall implementation
  *
- *   Copyright (C) 2013-2014 Jo-Philipp Wich <jo@mein.io>
+ *   Copyright (C) 2013-2018 Jo-Philipp Wich <jo@mein.io>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,6 +29,7 @@ const struct fw3_option fw3_redirect_opts[] = {
 	FW3_OPT("dest",                device,    redirect,     dest),
 
 	FW3_OPT("ipset",               setmatch,  redirect,     ipset),
+	FW3_OPT("helper",              cthelper,  redirect,     helper),
 
 	FW3_LIST("proto",              protocol,  redirect,     proto),
 
@@ -89,6 +90,13 @@ check_families(struct uci_element *e, struct fw3_redirect *r)
 	    r->ipset.ptr->family != r->family)
 	{
 		warn_elem(e, "refers to ipset with different family");
+		return false;
+	}
+
+	if (r->helper.ptr && r->helper.ptr->family &&
+	    r->helper.ptr->family != r->family)
+	{
+		warn_elem(e, "refers to CT helper not supporting family");
 		return false;
 	}
 
@@ -175,6 +183,48 @@ check_local(struct uci_element *e, struct fw3_redirect *redir,
 	return redir->local;
 }
 
+static void
+select_helper(struct fw3_state *state, struct fw3_redirect *redir)
+{
+	struct fw3_protocol *proto;
+	struct fw3_cthelper *helper;
+	int n_matches = 0;
+
+	if (!state->defaults.auto_helper)
+		return;
+
+	if (!redir->_src || redir->target != FW3_FLAG_DNAT)
+		return;
+
+	if (!redir->port_redir.set || redir->port_redir.invert)
+		return;
+
+	if (redir->helper.set || redir->helper.ptr)
+		return;
+
+	if (list_empty(&redir->proto))
+		return;
+
+	list_for_each_entry(proto, &redir->proto, list)
+	{
+		helper = fw3_lookup_cthelper_by_proto_port(state, proto, &redir->port_redir);
+
+		if (helper)
+			n_matches++;
+	}
+
+	if (n_matches != 1)
+		return;
+
+	/* store pointer to auto-selected helper but set ".set" flag to false,
+	 * to allow later code to decide between configured or auto-selected
+	 * helpers */
+	redir->helper.set = false;
+	redir->helper.ptr = helper;
+
+	set(redir->_src->flags, FW3_FAMILY_V4, FW3_FLAG_HELPER);
+}
+
 static bool
 check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_element *e)
 {
@@ -215,6 +265,13 @@ check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_e
 				redir->ipset.name);
 		return false;
 	}
+	else if (redir->helper.set &&
+	         !(redir->helper.ptr = fw3_lookup_cthelper(state, redir->helper.name)))
+	{
+		warn_section("redirect", redir, e, "refers to unknown CT helper '%s'",
+		             redir->helper.name);
+		return false;
+	}
 
 	if (!check_families(e, redir))
 		return false;
@@ -238,6 +295,8 @@ check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_e
 			warn_section("redirect", redir, e, "must not have source '*' for DNAT target");
 		else if (!redir->_src)
 			warn_section("redirect", redir, e, "has no source specified");
+		else if (redir->helper.invert)
+			warn_section("redirect", redir, e, "must not use a negated helper match");
 		else
 		{
 			set(redir->_src->flags, FW3_FAMILY_V4, redir->target);
@@ -257,6 +316,9 @@ check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_e
 				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_DNAT);
 				set(redir->_dest->flags, FW3_FAMILY_V4, FW3_FLAG_SNAT);
 			}
+
+			if (redir->helper.ptr)
+				set(redir->_src->flags, FW3_FAMILY_V4, FW3_FLAG_HELPER);
 		}
 	}
 	else
@@ -270,6 +332,8 @@ check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_e
 			warn_section("redirect", redir, e, "has no src_dip option specified");
 		else if (!list_empty(&redir->mac_src))
 			warn_section("redirect", redir, e, "must not use 'src_mac' option for SNAT target");
+		else if (redir->helper.set)
+			warn_section("redirect", redir, e, "must not use 'helper' option for SNAT target");
 		else
 		{
 			set(redir->_dest->flags, FW3_FAMILY_V4, redir->target);
@@ -346,8 +410,12 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p,
 			continue;
 		}
 
-		if (!check_redirect(state, redir, NULL))
+		if (!check_redirect(state, redir, NULL)) {
 			fw3_free_redirect(redir);
+			continue;
+		}
+
+		select_helper(state, redir);
 	}
 
 	uci_foreach_element(&p->sections, e)
@@ -368,8 +436,12 @@ fw3_load_redirects(struct fw3_state *state, struct uci_package *p,
 			continue;
 		}
 
-		if (!check_redirect(state, redir, e))
+		if (!check_redirect(state, redir, e)) {
 			fw3_free_redirect(redir);
+			continue;
+		}
+
+		select_helper(state, redir);
 	}
 }
 
@@ -446,19 +518,19 @@ set_target_nat(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 }
 
 static void
-set_comment(struct fw3_ipt_rule *r, const char *name, int num, bool ref)
+set_comment(struct fw3_ipt_rule *r, const char *name, int num, const char *suffix)
 {
 	if (name)
 	{
-		if (ref)
-			fw3_ipt_rule_comment(r, "%s (reflection)", name);
+		if (suffix)
+			fw3_ipt_rule_comment(r, "%s (%s)", name, suffix);
 		else
 			fw3_ipt_rule_comment(r, name);
 	}
 	else
 	{
-		if (ref)
-			fw3_ipt_rule_comment(r, "@redirect[%u] (reflection)", num);
+		if (suffix)
+			fw3_ipt_rule_comment(r, "@redirect[%u] (%s)", num, suffix);
 		else
 			fw3_ipt_rule_comment(r, "@redirect[%u]", num);
 	}
@@ -491,13 +563,44 @@ print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_sport_dport(r, spt, dpt);
 		fw3_ipt_rule_mac(r, mac);
 		fw3_ipt_rule_ipset(r, &redir->ipset);
+		fw3_ipt_rule_helper(r, &redir->helper);
 		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
 		fw3_ipt_rule_mark(r, &redir->mark);
 		set_target_nat(r, redir);
 		fw3_ipt_rule_extra(r, redir->extra);
-		set_comment(r, redir->name, num, false);
+		set_comment(r, redir->name, num, NULL);
 		append_chain_nat(r, redir);
+		break;
+
+	case FW3_TABLE_RAW:
+		if (redir->target == FW3_FLAG_DNAT && redir->helper.ptr)
+		{
+			if (redir->helper.ptr->proto.protocol != proto->protocol)
+			{
+				info("     ! Skipping protocol %s since helper '%s' does not support it",
+				     fw3_protoname(proto), redir->helper.ptr->name);
+				return;
+			}
+
+			if (!redir->helper.set)
+				info("     - Auto-selected conntrack helper '%s' based on proto/port",
+				     redir->helper.ptr->name);
+
+			r = fw3_ipt_rule_create(h, proto, NULL, NULL, &redir->ip_src, &redir->ip_redir);
+			fw3_ipt_rule_sport_dport(r, &redir->port_src, &redir->port_redir);
+			fw3_ipt_rule_mac(r, mac);
+			fw3_ipt_rule_ipset(r, &redir->ipset);
+			fw3_ipt_rule_limit(r, &redir->limit);
+			fw3_ipt_rule_time(r, &redir->time);
+			fw3_ipt_rule_mark(r, &redir->mark);
+			fw3_ipt_rule_addarg(r, false, "-m", "conntrack");
+			fw3_ipt_rule_addarg(r, false, "--ctstate", "DNAT");
+			fw3_ipt_rule_target(r, "CT");
+			fw3_ipt_rule_addarg(r, false, "--helper", redir->helper.ptr->name);
+			set_comment(r, redir->name, num, "CT helper");
+			fw3_ipt_rule_append(r, "zone_%s_helper", redir->_src->name);
+		}
 		break;
 
 	default:
@@ -520,7 +623,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_dest);
 		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
-		set_comment(r, redir->name, num, true);
+		set_comment(r, redir->name, num, "reflection");
 		set_snat_dnat(r, FW3_FLAG_DNAT, &redir->ip_redir, &redir->port_redir);
 		fw3_ipt_rule_replace(r, "zone_%s_prerouting", redir->dest.name);
 
@@ -528,7 +631,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
 		fw3_ipt_rule_limit(r, &redir->limit);
 		fw3_ipt_rule_time(r, &redir->time);
-		set_comment(r, redir->name, num, true);
+		set_comment(r, redir->name, num, "reflection");
 		set_snat_dnat(r, FW3_FLAG_SNAT, ra, NULL);
 		fw3_ipt_rule_replace(r, "zone_%s_postrouting", redir->dest.name);
 		break;
@@ -650,9 +753,16 @@ fw3_print_redirects(struct fw3_ipt_handle *handle, struct fw3_state *state)
 	if (handle->family == FW3_FAMILY_V6)
 		return;
 
-	if (handle->table != FW3_TABLE_FILTER && handle->table != FW3_TABLE_NAT)
+	if (handle->table != FW3_TABLE_FILTER &&
+	    handle->table != FW3_TABLE_NAT &&
+	    handle->table != FW3_TABLE_RAW)
 		return;
 
 	list_for_each_entry(redir, &state->redirects, list)
+	{
+		if (handle->table == FW3_TABLE_RAW && !redir->helper.ptr)
+			continue;
+
 		expand_redirect(handle, state, redir, num++);
+	}
 }

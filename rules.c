@@ -1,7 +1,7 @@
 /*
  * firewall3 - 3rd OpenWrt UCI firewall implementation
  *
- *   Copyright (C) 2013 Jo-Philipp Wich <jo@mein.io>
+ *   Copyright (C) 2013-2018 Jo-Philipp Wich <jo@mein.io>
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,6 +32,8 @@ const struct fw3_option fw3_rule_opts[] = {
 	FW3_OPT("direction",           direction, rule,     direction_out),
 
 	FW3_OPT("ipset",               setmatch,  rule,     ipset),
+	FW3_OPT("helper",              cthelper,  rule,     helper),
+	FW3_OPT("set_helper",          cthelper,  rule,     helper),
 
 	FW3_LIST("proto",              protocol,  rule,     proto),
 
@@ -130,10 +132,23 @@ check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 		warn_section("rule", r, e, "refers to unknown ipset '%s'", r->ipset.name);
 		return false;
 	}
-
-	if (!r->_src && r->target == FW3_FLAG_NOTRACK)
+	else if (r->helper.set &&
+	         !(r->helper.ptr = fw3_lookup_cthelper(state, r->helper.name)))
 	{
-		warn_section("rule", r, e, "is set to target NOTRACK but has no source assigned");
+		warn_section("rule", r, e, "refers to unknown CT helper '%s'", r->helper.name);
+		return false;
+	}
+	else if (r->set_helper.set &&
+	         !(r->set_helper.ptr = fw3_lookup_cthelper(state, r->set_helper.name)))
+	{
+		warn_section("rule", r, e, "refers to unknown CT helper '%s'", r->set_helper.name);
+		return false;
+	}
+
+	if (!r->_src && (r->target == FW3_FLAG_NOTRACK || r->target == FW3_FLAG_HELPER))
+	{
+		warn_section("rule", r, e, "is set to target %s but has no source assigned",
+		             fw3_flag_names[r->target]);
 		return false;
 	}
 
@@ -154,6 +169,19 @@ check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 	if (r->set_mark.invert || r->set_xmark.invert)
 	{
 		warn_section("rule", r, e, "must not have inverted 'set_mark' or 'set_xmark'");
+		return false;
+	}
+
+	if (!r->set_helper.set && r->target == FW3_FLAG_HELPER)
+	{
+		warn_section("rule", r, e, "is set to target HELPER but specifies "
+		                           "no 'set_helper' option");
+		return false;
+	}
+
+	if (r->set_helper.invert && r->target == FW3_FLAG_HELPER)
+	{
+		warn_section("rule", r, e, "must not have inverted 'set_helper' option");
 		return false;
 	}
 
@@ -265,6 +293,10 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 	{
 		snprintf(chain, sizeof(chain), "zone_%s_notrack", rule->src.name);
 	}
+	else if (rule->target == FW3_FLAG_HELPER)
+	{
+		snprintf(chain, sizeof(chain), "zone_%s_helper", rule->src.name);
+	}
 	else if (rule->target == FW3_FLAG_MARK && (rule->_src || rule->src.any))
 	{
 		snprintf(chain, sizeof(chain), "PREROUTING");
@@ -326,6 +358,11 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 		fw3_ipt_rule_addarg(r, false, "--notrack", NULL);
 		return;
 
+	case FW3_FLAG_HELPER:
+		fw3_ipt_rule_target(r, "CT");
+		fw3_ipt_rule_addarg(r, false, "--helper", rule->set_helper.ptr->name);
+		return;
+
 	case FW3_FLAG_ACCEPT:
 	case FW3_FLAG_DROP:
 		name = fw3_flag_names[rule->target];
@@ -373,9 +410,44 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		return;
 	}
 
+	if (!fw3_is_family(sip, handle->family) ||
+	    !fw3_is_family(dip, handle->family))
+	{
+		if ((sip && !sip->resolved) || (dip && !dip->resolved))
+			info("     ! Skipping due to different family of ip address");
+
+		return;
+	}
+
+	if (!fw3_is_family(sip, handle->family) ||
+	    !fw3_is_family(dip, handle->family))
+	{
+		if ((sip && !sip->resolved) || (dip && !dip->resolved))
+			info("     ! Skipping due to different family of ip address");
+
+		return;
+	}
+
 	if (proto->protocol == 58 && handle->family == FW3_FAMILY_V4)
 	{
-		info("     ! Skipping due to different family of protocol");
+		info("     ! Skipping protocol %s due to different family",
+		     fw3_protoname(proto));
+		return;
+	}
+
+	if (rule->helper.ptr &&
+	    rule->helper.ptr->proto.protocol != proto->protocol)
+	{
+		info("     ! Skipping protocol %s since helper '%s' does not support it",
+		     fw3_protoname(proto), rule->helper.ptr->name);
+		return;
+	}
+
+	if (rule->set_helper.ptr &&
+	    rule->set_helper.ptr->proto.protocol != proto->protocol)
+	{
+		info("     ! Skipping protocol %s since helper '%s' does not support it",
+		     fw3_protoname(proto), rule->helper.ptr->name);
 		return;
 	}
 
@@ -385,6 +457,7 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	fw3_ipt_rule_icmptype(r, icmptype);
 	fw3_ipt_rule_mac(r, mac);
 	fw3_ipt_rule_ipset(r, &rule->ipset);
+	fw3_ipt_rule_helper(r, &rule->helper);
 	fw3_ipt_rule_limit(r, &rule->limit);
 	fw3_ipt_rule_time(r, &rule->time);
 	fw3_ipt_rule_mark(r, &rule->mark);
@@ -417,6 +490,7 @@ expand_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		return;
 
 	if ((rule->target == FW3_FLAG_NOTRACK && handle->table != FW3_TABLE_RAW) ||
+	    (rule->target == FW3_FLAG_HELPER && handle->table != FW3_TABLE_RAW)  ||
 	    (rule->target == FW3_FLAG_MARK && handle->table != FW3_TABLE_MANGLE) ||
 		(rule->target < FW3_FLAG_NOTRACK && handle->table != FW3_TABLE_FILTER))
 		return;
@@ -450,6 +524,18 @@ expand_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		}
 
 		set(rule->ipset.ptr->flags, handle->family, handle->family);
+	}
+
+	if (rule->helper.ptr && !fw3_is_family(rule->helper.ptr, handle->family))
+	{
+		info("     ! Skipping due to unsupported family of CT helper");
+		return;
+	}
+
+	if (rule->set_helper.ptr && !fw3_is_family(rule->set_helper.ptr, handle->family))
+	{
+		info("     ! Skipping due to unsupported family of CT helper");
+		return;
 	}
 
 	list_for_each_entry(proto, &rule->proto, list)

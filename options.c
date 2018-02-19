@@ -75,6 +75,7 @@ const char *fw3_flag_names[__FW3_FLAG_MAX] = {
 	"REJECT",
 	"DROP",
 	"NOTRACK",
+	"HELPER",
 	"MARK",
 	"DNAT",
 	"SNAT",
@@ -895,6 +896,28 @@ fw3_parse_direction(void *ptr, const char *val, bool is_list)
 		valid = false;
 
 	return valid;
+}
+
+bool
+fw3_parse_cthelper(void *ptr, const char *val, bool is_list)
+{
+	struct fw3_cthelpermatch m = { };
+
+	if (*val == '!')
+	{
+		m.invert = true;
+		while (isspace(*++val));
+	}
+
+	if (*val)
+	{
+		m.set = true;
+		strncpy(m.name, val, sizeof(m.name) - 1);
+		put_value(ptr, &m, sizeof(m), is_list);
+		return true;
+	}
+
+	return false;
 }
 
 

@@ -54,6 +54,7 @@ const struct fw3_option fw3_flag_opts[] = {
 	FW3_OPT("accept_redirects",    bool,     defaults, accept_redirects),
 	FW3_OPT("accept_source_route", bool,     defaults, accept_source_route),
 
+	FW3_OPT("auto_helper",         bool,     defaults, auto_helper),
 	FW3_OPT("custom_chains",       bool,     defaults, custom_chains),
 	FW3_OPT("disable_ipv6",        bool,     defaults, disable_ipv6),
 
@@ -93,6 +94,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 	defs->tcp_syncookies       = true;
 	defs->tcp_window_scaling   = true;
 	defs->custom_chains        = true;
+	defs->auto_helper          = true;
 
 	uci_foreach_element(&p->sections, e)
 	{

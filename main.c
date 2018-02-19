@@ -30,6 +30,7 @@
 #include "includes.h"
 #include "ubus.h"
 #include "iptables.h"
+#include "helpers.h"
 
 
 static enum fw3_family print_family = FW3_FAMILY_ANY;
@@ -101,6 +102,7 @@ build_state(bool runtime)
 	fw3_ubus_rules(&b);
 
 	fw3_load_defaults(state, p);
+	fw3_load_cthelpers(state, p);
 	fw3_load_ipsets(state, p, b.head);
 	fw3_load_zones(state, p);
 	fw3_load_rules(state, p, b.head);
@@ -137,6 +139,9 @@ free_state(struct fw3_state *state)
 
 	list_for_each_safe(cur, tmp, &state->includes)
 		fw3_free_include((struct fw3_include *)cur);
+
+	list_for_each_safe(cur, tmp, &state->cthelpers)
+		fw3_free_cthelper((struct fw3_cthelper *)cur);
 
 	uci_free_context(state->uci);
 
