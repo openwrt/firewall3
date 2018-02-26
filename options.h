@@ -324,7 +324,7 @@ struct fw3_zone
 
 	struct list_head cthelpers;
 
-	bool log;
+	int log;
 	struct fw3_limit log_limit;
 
 	bool custom_chains;

@@ -53,6 +53,11 @@ static const struct fw3_chain_spec zone_chains[] = {
 	{ }
 };
 
+enum fw3_zone_logmask {
+	FW3_ZONE_LOG_FILTER = (1 << 0),
+	FW3_ZONE_LOG_MANGLE = (1 << 1),
+};
+
 const struct fw3_option fw3_zone_opts[] = {
 	FW3_OPT("enabled",             bool,     zone,     enabled),
 
@@ -79,7 +84,7 @@ const struct fw3_option fw3_zone_opts[] = {
 	FW3_OPT("mtu_fix",             bool,     zone,     mtu_fix),
 	FW3_OPT("custom_chains",       bool,     zone,     custom_chains),
 
-	FW3_OPT("log",                 bool,     zone,     log),
+	FW3_OPT("log",                 int,      zone,     log),
 	FW3_OPT("log_limit",           limit,    zone,     log_limit),
 
 	FW3_OPT("auto_helper",         bool,     zone,     auto_helper),
@@ -496,7 +501,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	{
 		if (zone->mtu_fix)
 		{
-			if (zone->log)
+			if (zone->log & FW3_ZONE_LOG_MANGLE)
 			{
 				snprintf(buf, sizeof(buf) - 1, "MSSFIX(%s): ", zone->name);
 
@@ -629,7 +634,7 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		                     fw3_flag_names[zone->policy_output]);
 		fw3_ipt_rule_append(r, "zone_%s_output", zone->name);
 
-		if (zone->log)
+		if (zone->log & FW3_ZONE_LOG_FILTER)
 		{
 			for (t = FW3_FLAG_REJECT; t <= FW3_FLAG_DROP; t++)
 			{
