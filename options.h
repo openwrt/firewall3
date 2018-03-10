@@ -495,6 +495,9 @@ struct fw3_ipset
 
 	const char *external;
 
+	struct list_head entries;
+	const char *loadfile;
+
 	uint32_t flags[2];
 };
 
@@ -523,6 +526,12 @@ struct fw3_cthelper
 	enum fw3_family family;
 	struct fw3_protocol proto;
 	struct fw3_port port;
+};
+
+struct fw3_setentry
+{
+	struct list_head list;
+	const char *value;
 };
 
 struct fw3_state
@@ -593,6 +602,7 @@ bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
 bool fw3_parse_setmatch(void *ptr, const char *val, bool is_list);
 bool fw3_parse_direction(void *ptr, const char *val, bool is_list);
 bool fw3_parse_cthelper(void *ptr, const char *val, bool is_list);
+bool fw3_parse_setentry(void *ptr, const char *val, bool is_list);
 
 bool fw3_parse_options(void *s, const struct fw3_option *opts,
                        struct uci_section *section);

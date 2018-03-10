@@ -920,6 +920,17 @@ fw3_parse_cthelper(void *ptr, const char *val, bool is_list)
 	return false;
 }
 
+bool
+fw3_parse_setentry(void *ptr, const char *val, bool is_list)
+{
+	struct fw3_setentry e = { };
+
+	e.value = val;
+	put_value(ptr, &e, sizeof(e), is_list);
+
+	return true;
+}
+
 
 bool
 fw3_parse_options(void *s, const struct fw3_option *opts,

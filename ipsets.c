@@ -38,6 +38,9 @@ const struct fw3_option fw3_ipset_opts[] = {
 
 	FW3_OPT("external",      string,         ipset,     external),
 
+	FW3_LIST("entry",        setentry,       ipset,     entries),
+	FW3_OPT("loadfile",      string,         ipset,     loadfile),
+
 	{ }
 };
 
@@ -247,6 +250,7 @@ fw3_alloc_ipset(struct fw3_state *state)
 		return NULL;
 
 	INIT_LIST_HEAD(&ipset->datatypes);
+	INIT_LIST_HEAD(&ipset->entries);
 
 	ipset->enabled = true;
 	ipset->family  = FW3_FAMILY_V4;
@@ -319,10 +323,34 @@ fw3_load_ipsets(struct fw3_state *state, struct uci_package *p,
 
 
 static void
+load_file(struct fw3_ipset *ipset)
+{
+	FILE *f;
+	char line[128];
+
+	if (!ipset->loadfile)
+		return;
+
+	info("   * Loading file %s", ipset->loadfile);
+
+	f = fopen(ipset->loadfile, "r");
+
+	if (!f) {
+		info("     ! Skipping due to open error: %s", strerror(errno));
+		return;
+	}
+
+	while (fgets(line, sizeof(line), f))
+		fw3_pr("add %s %s", ipset->name, line);
+
+	fclose(f);
+}
+
+static void
 create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 {
 	bool first = true;
-
+	struct fw3_setentry *entry;
 	struct fw3_ipset_datatype *type;
 
 	info(" * Creating ipset %s", ipset->name);
@@ -362,6 +390,11 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 		fw3_pr(" hashsize %u", ipset->hashsize);
 
 	fw3_pr("\n");
+
+	list_for_each_entry(entry, &ipset->entries, list)
+		fw3_pr("add %s %s\n", ipset->name, entry->value);
+
+	load_file(ipset);
 }
 
 void
