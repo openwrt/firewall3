@@ -224,7 +224,7 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 			for (i = 0; i < ARRAY_SIZE(chains); i += 2)
 			{
 				r = fw3_ipt_rule_new(handle);
-				fw3_ipt_rule_comment(r, "user chain for %s", chains[i+1]);
+				fw3_ipt_rule_comment(r, "Custom %s rule chain", chains[i+1]);
 				fw3_ipt_rule_target(r, "%s_rule", chains[i+1]);
 				fw3_ipt_rule_append(r, chains[i]);
 			}
@@ -233,6 +233,7 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 		if (defs->flow_offloading)
 		{
 			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_comment(r, "Traffic offloading");
 			fw3_ipt_rule_extra(r, "-m conntrack --ctstate RELATED,ESTABLISHED");
 			fw3_ipt_rule_target(r, "FLOWOFFLOAD");
 			fw3_ipt_rule_append(r, "FORWARD");
@@ -288,12 +289,12 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 		if (defs->custom_chains)
 		{
 			r = fw3_ipt_rule_new(handle);
-			fw3_ipt_rule_comment(r, "user chain for prerouting");
+			fw3_ipt_rule_comment(r, "Custom prerouting rule chain");
 			fw3_ipt_rule_target(r, "prerouting_rule");
 			fw3_ipt_rule_append(r, "PREROUTING");
 
 			r = fw3_ipt_rule_new(handle);
-			fw3_ipt_rule_comment(r, "user chain for postrouting");
+			fw3_ipt_rule_comment(r, "Custom postrouting rule chain");
 			fw3_ipt_rule_target(r, "postrouting_rule");
 			fw3_ipt_rule_append(r, "POSTROUTING");
 		}

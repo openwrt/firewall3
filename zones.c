@@ -381,7 +381,7 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			for (i = 0; i < sizeof(flt_chains)/sizeof(flt_chains[0]); i += 2)
 			{
 				r = fw3_ipt_rule_new(handle);
-				fw3_ipt_rule_comment(r, "user chain for %s", flt_chains[i+1]);
+				fw3_ipt_rule_comment(r, "Custom %s %s rule chain", zone->name, flt_chains[i+1]);
 				fw3_ipt_rule_target(r, "%s_%s_rule", flt_chains[i+1], zone->name);
 				fw3_ipt_rule_append(r, "zone_%s_%s", zone->name, flt_chains[i]);
 			}
@@ -391,7 +391,7 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			for (i = 0; i < sizeof(nat_chains)/sizeof(nat_chains[0]); i += 2)
 			{
 				r = fw3_ipt_rule_new(handle);
-				fw3_ipt_rule_comment(r, "user chain for %s", nat_chains[i+1]);
+				fw3_ipt_rule_comment(r, "Custom %s %s rule chain", zone->name, nat_chains[i+1]);
 				fw3_ipt_rule_target(r, "%s_%s_rule", nat_chains[i+1], zone->name);
 				fw3_ipt_rule_append(r, "zone_%s_%s", zone->name, nat_chains[i]);
 			}
@@ -509,7 +509,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				fw3_ipt_rule_addarg(r, false, "--tcp-flags", "SYN,RST");
 				fw3_ipt_rule_addarg(r, false, "SYN", NULL);
 				fw3_ipt_rule_limit(r, &zone->log_limit);
-				fw3_ipt_rule_comment(r, "%s (mtu_fix logging)", zone->name);
+				fw3_ipt_rule_comment(r, "Zone %s MTU fix logging", zone->name);
 				fw3_ipt_rule_target(r, "LOG");
 				fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
 				fw3_ipt_rule_replace(r, "FORWARD");
@@ -518,7 +518,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			r = fw3_ipt_rule_create(handle, &tcp, NULL, dev, NULL, sub);
 			fw3_ipt_rule_addarg(r, false, "--tcp-flags", "SYN,RST");
 			fw3_ipt_rule_addarg(r, false, "SYN", NULL);
-			fw3_ipt_rule_comment(r, "%s (mtu_fix)", zone->name);
+			fw3_ipt_rule_comment(r, "Zone %s MTU fixing", zone->name);
 			fw3_ipt_rule_target(r, "TCPMSS");
 			fw3_ipt_rule_addarg(r, false, "--clamp-mss-to-pmtu", NULL);
 			fw3_ipt_rule_replace(r, "FORWARD");

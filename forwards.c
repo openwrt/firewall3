@@ -183,7 +183,7 @@ print_forward(struct fw3_ipt_handle *handle, struct fw3_forward *forward)
 	}
 
 	r = fw3_ipt_rule_new(handle);
-	fw3_ipt_rule_comment(r, "forwarding %s -> %s", s, d);
+	fw3_ipt_rule_comment(r, "Zone %s to %s forwarding policy", s, d);
 	set_target(r, forward);
 	append_chain(r, forward);
 }
