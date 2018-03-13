@@ -57,6 +57,7 @@ const struct fw3_option fw3_flag_opts[] = {
 	FW3_OPT("auto_helper",         bool,     defaults, auto_helper),
 	FW3_OPT("custom_chains",       bool,     defaults, custom_chains),
 	FW3_OPT("disable_ipv6",        bool,     defaults, disable_ipv6),
+	FW3_OPT("flow_offloading",     bool,     defaults, flow_offloading),
 
 	FW3_OPT("__flags_v4",          int,      defaults, flags[0]),
 	FW3_OPT("__flags_v6",          int,      defaults, flags[1]),
@@ -78,6 +79,26 @@ check_policy(struct uci_element *e, enum fw3_flag *pol, const char *name)
 		warn_elem(e, "has invalid %s policy, defaulting to DROP", name);
 		*pol = FW3_FLAG_DROP;
 	}
+}
+
+static void
+check_offloading(struct uci_element *e, bool *offloading)
+{
+	FILE *f;
+
+	if (!*offloading)
+		return;
+
+	f = fopen("/sys/module/xt_FLOWOFFLOAD/refcnt", "r");
+
+	if (f)
+	{
+		fclose(f);
+		return;
+	}
+
+	warn_elem(e, "enables offloading but missing kernel support, disabling");
+	*offloading = false;
 }
 
 void
@@ -115,6 +136,8 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 		check_policy(e, &defs->policy_input, "input");
 		check_policy(e, &defs->policy_output, "output");
 		check_policy(e, &defs->policy_forward, "forward");
+
+		check_offloading(e, &defs->flow_offloading);
 	}
 }
 
@@ -205,6 +228,14 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 				fw3_ipt_rule_target(r, "%s_rule", chains[i+1]);
 				fw3_ipt_rule_append(r, chains[i]);
 			}
+		}
+
+		if (defs->flow_offloading)
+		{
+			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_extra(r, "-m conntrack --ctstate RELATED,ESTABLISHED");
+			fw3_ipt_rule_target(r, "FLOWOFFLOAD");
+			fw3_ipt_rule_append(r, "FORWARD");
 		}
 
 		for (i = 0; i < ARRAY_SIZE(chains); i += 2)
