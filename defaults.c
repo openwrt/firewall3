@@ -58,6 +58,7 @@ const struct fw3_option fw3_flag_opts[] = {
 	FW3_OPT("custom_chains",       bool,     defaults, custom_chains),
 	FW3_OPT("disable_ipv6",        bool,     defaults, disable_ipv6),
 	FW3_OPT("flow_offloading",     bool,     defaults, flow_offloading),
+	FW3_OPT("flow_offloading_hw",  bool,     defaults, flow_offloading_hw),
 
 	FW3_OPT("__flags_v4",          int,      defaults, flags[0]),
 	FW3_OPT("__flags_v6",          int,      defaults, flags[1]),
@@ -236,6 +237,8 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 			fw3_ipt_rule_comment(r, "Traffic offloading");
 			fw3_ipt_rule_extra(r, "-m conntrack --ctstate RELATED,ESTABLISHED");
 			fw3_ipt_rule_target(r, "FLOWOFFLOAD");
+			if (defs->flow_offloading_hw)
+				fw3_ipt_rule_addarg(r, false, "--hw", NULL);
 			fw3_ipt_rule_append(r, "FORWARD");
 		}
 

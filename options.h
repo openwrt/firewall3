@@ -290,6 +290,7 @@ struct fw3_defaults
 	bool custom_chains;
 	bool auto_helper;
 	bool flow_offloading;
+	bool flow_offloading_hw;
 
 	bool disable_ipv6;
 
