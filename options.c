@@ -641,6 +641,7 @@ fw3_parse_date(void *ptr, const char *val, bool is_list)
 {
 	unsigned int year = 1970, mon = 1, day = 1, hour = 0, min = 0, sec = 0;
 	struct tm tm = { 0 };
+	time_t ts;
 	char *p;
 
 	year = strtoul(val, &p, 10);
@@ -685,9 +686,11 @@ ret:
 	tm.tm_min  = min;
 	tm.tm_sec  = sec;
 
-	if (mktime(&tm) >= 0)
+	ts = mktime(&tm) - timezone;
+
+	if (ts >= 0)
 	{
-		*((struct tm *)ptr) = tm;
+		gmtime_r(&ts, (struct tm *)ptr);
 		return true;
 	}
 
