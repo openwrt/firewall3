@@ -41,6 +41,9 @@ void
 fw3_print_cthelpers(struct fw3_ipt_handle *handle, struct fw3_state *state,
                     struct fw3_zone *zone);
 
+bool
+fw3_cthelper_check_proto(const struct fw3_cthelper *h, const struct fw3_protocol *proto);
+
 static inline void fw3_free_cthelper(struct fw3_cthelper *helper)
 {
 	list_del(&helper->list);

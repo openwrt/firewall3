@@ -25,7 +25,7 @@ const struct fw3_option fw3_cthelper_opts[] = {
 	FW3_OPT("module",      string,   cthelper, module),
 	FW3_OPT("description", string,   cthelper, description),
 	FW3_OPT("family",      family,   cthelper, family),
-	FW3_OPT("proto",       protocol, cthelper, proto),
+	FW3_LIST("proto",      protocol, cthelper, proto),
 	FW3_OPT("port",        port,     cthelper, port),
 
 	{ }
@@ -47,6 +47,23 @@ test_module(struct fw3_cthelper *helper)
 }
 
 static bool
+check_cthelper_proto(const struct fw3_cthelper *helper)
+{
+	struct fw3_protocol	*proto;
+
+	if (list_empty(&helper->proto))
+		return false;
+
+	list_for_each_entry(proto, &helper->proto, list)
+	{
+		if (!proto->protocol || proto->any || proto->invert)
+			return false;
+	}
+
+	return true;
+}
+
+static bool
 check_cthelper(struct fw3_state *state, struct fw3_cthelper *helper, struct uci_element *e)
 {
 	if (!helper->name || !*helper->name)
@@ -57,7 +74,7 @@ check_cthelper(struct fw3_state *state, struct fw3_cthelper *helper, struct uci_
 	{
 		warn_section("helper", helper, e, "must have a module assigned");
 	}
-	else if (!helper->proto.protocol || helper->proto.any || helper->proto.invert)
+	else if (!check_cthelper_proto(helper))
 	{
 		warn_section("helper", helper, e, "must specify a protocol");
 	}
@@ -84,6 +101,7 @@ fw3_alloc_cthelper(struct fw3_state *state)
 
 	helper->enabled = true;
 	helper->family  = FW3_FAMILY_ANY;
+	INIT_LIST_HEAD(&helper->proto);
 
 	list_add_tail(&helper->list, &state->cthelpers);
 
@@ -157,6 +175,20 @@ fw3_lookup_cthelper(struct fw3_state *state, const char *name)
 	return NULL;
 }
 
+bool
+fw3_cthelper_check_proto(const struct fw3_cthelper *h, const struct fw3_protocol *proto)
+{
+	struct fw3_protocol	*p;
+
+	list_for_each_entry(p, &h->proto, list)
+	{
+		if (p->protocol == proto->protocol)
+			return true;
+	}
+
+	return false;
+}
+
 struct fw3_cthelper *
 fw3_lookup_cthelper_by_proto_port(struct fw3_state *state,
                                   struct fw3_protocol *proto,
@@ -178,7 +210,7 @@ fw3_lookup_cthelper_by_proto_port(struct fw3_state *state,
 		if (!h->enabled)
 			continue;
 
-		if (h->proto.protocol != proto->protocol)
+		if (!fw3_cthelper_check_proto(h, proto))
 			continue;
 
 		if (h->port.set && (!port || !port->set))
@@ -198,11 +230,11 @@ fw3_lookup_cthelper_by_proto_port(struct fw3_state *state,
 
 static void
 print_helper_rule(struct fw3_ipt_handle *handle, struct fw3_cthelper *helper,
-                  struct fw3_zone *zone)
+                  struct fw3_zone *zone, struct fw3_protocol *proto)
 {
 	struct fw3_ipt_rule *r;
 
-	r = fw3_ipt_rule_create(handle, &helper->proto, NULL, NULL, NULL, NULL);
+	r = fw3_ipt_rule_create(handle, proto, NULL, NULL, NULL, NULL);
 
 	if (helper->description && *helper->description)
 		fw3_ipt_rule_comment(r, helper->description);
@@ -213,6 +245,16 @@ print_helper_rule(struct fw3_ipt_handle *handle, struct fw3_cthelper *helper,
 	fw3_ipt_rule_target(r, "CT");
 	fw3_ipt_rule_addarg(r, false, "--helper", helper->name);
 	fw3_ipt_rule_replace(r, "zone_%s_helper", zone->name);
+}
+
+static void
+expand_helper_rule(struct fw3_ipt_handle *handle, struct fw3_cthelper *helper,
+                  struct fw3_zone *zone)
+{
+	struct fw3_protocol *proto;
+
+	list_for_each_entry(proto, &helper->proto, list)
+		print_helper_rule(handle, helper, zone, proto);
 }
 
 void
@@ -249,7 +291,7 @@ fw3_print_cthelpers(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			if (!test_module(helper))
 				continue;
 
-			print_helper_rule(handle, helper, zone);
+			expand_helper_rule(handle, helper, zone);
 		}
 	}
 	else
@@ -271,7 +313,7 @@ fw3_print_cthelpers(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				continue;
 			}
 
-			print_helper_rule(handle, helper, zone);
+			expand_helper_rule(handle, helper, zone);
 		}
 	}
 }

@@ -526,7 +526,7 @@ struct fw3_cthelper
 	const char *module;
 	const char *description;
 	enum fw3_family family;
-	struct fw3_protocol proto;
+	struct list_head proto;
 	struct fw3_port port;
 };
 

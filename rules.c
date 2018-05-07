@@ -436,7 +436,7 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	}
 
 	if (rule->helper.ptr &&
-	    rule->helper.ptr->proto.protocol != proto->protocol)
+	    !fw3_cthelper_check_proto(rule->helper.ptr, proto))
 	{
 		info("     ! Skipping protocol %s since helper '%s' does not support it",
 		     fw3_protoname(proto), rule->helper.ptr->name);
@@ -444,7 +444,7 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	}
 
 	if (rule->set_helper.ptr &&
-	    rule->set_helper.ptr->proto.protocol != proto->protocol)
+	    !fw3_cthelper_check_proto(rule->set_helper.ptr, proto))
 	{
 		info("     ! Skipping protocol %s since helper '%s' does not support it",
 		     fw3_protoname(proto), rule->helper.ptr->name);

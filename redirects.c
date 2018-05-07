@@ -576,7 +576,7 @@ print_redirect(struct fw3_ipt_handle *h, struct fw3_state *state,
 	case FW3_TABLE_RAW:
 		if (redir->target == FW3_FLAG_DNAT && redir->helper.ptr)
 		{
-			if (redir->helper.ptr->proto.protocol != proto->protocol)
+			if (!fw3_cthelper_check_proto(redir->helper.ptr, proto))
 			{
 				info("     ! Skipping protocol %s since helper '%s' does not support it",
 				     fw3_protoname(proto), redir->helper.ptr->name);
