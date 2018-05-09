@@ -33,7 +33,7 @@ const struct fw3_option fw3_rule_opts[] = {
 
 	FW3_OPT("ipset",               setmatch,  rule,     ipset),
 	FW3_OPT("helper",              cthelper,  rule,     helper),
-	FW3_OPT("set_helper",          cthelper,  rule,     helper),
+	FW3_OPT("set_helper",          cthelper,  rule,     set_helper),
 
 	FW3_LIST("proto",              protocol,  rule,     proto),
 
