@@ -427,6 +427,37 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	{
 		for (t = FW3_FLAG_ACCEPT; t <= FW3_FLAG_DROP; t++)
 		{
+			if (t > FW3_FLAG_ACCEPT && zone->log & FW3_ZONE_LOG_FILTER)
+			{
+				if (has(zone->flags, handle->family, fw3_to_src_target(t)))
+				{
+					r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+
+					snprintf(buf, sizeof(buf) - 1, "%s %s in: ",
+					         fw3_flag_names[t], zone->name);
+
+					fw3_ipt_rule_limit(r, &zone->log_limit);
+					fw3_ipt_rule_target(r, "LOG");
+					fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
+					fw3_ipt_rule_replace(r, "zone_%s_src_%s",
+					                     zone->name, fw3_flag_names[t]);
+				}
+
+				if (has(zone->flags, handle->family, t))
+				{
+					r = fw3_ipt_rule_create(handle, NULL, NULL, dev, NULL, sub);
+
+					snprintf(buf, sizeof(buf) - 1, "%s %s out: ",
+					         fw3_flag_names[t], zone->name);
+
+					fw3_ipt_rule_limit(r, &zone->log_limit);
+					fw3_ipt_rule_target(r, "LOG");
+					fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
+					fw3_ipt_rule_replace(r, "zone_%s_dest_%s",
+					                     zone->name, fw3_flag_names[t]);
+				}
+			}
+
 			if (has(zone->flags, handle->family, fw3_to_src_target(t)))
 			{
 				r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
@@ -503,7 +534,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		{
 			if (zone->log & FW3_ZONE_LOG_MANGLE)
 			{
-				snprintf(buf, sizeof(buf) - 1, "MSSFIX(%s): ", zone->name);
+				snprintf(buf, sizeof(buf) - 1, "MSSFIX %s out: ", zone->name);
 
 				r = fw3_ipt_rule_create(handle, &tcp, NULL, dev, NULL, sub);
 				fw3_ipt_rule_addarg(r, false, "--tcp-flags", "SYN,RST");
@@ -593,9 +624,6 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	struct fw3_address *mdest;
 	struct fw3_ipt_rule *r;
 
-	enum fw3_flag t;
-	char buf[32];
-
 	if (!fw3_is_family(zone, handle->family))
 		return;
 
@@ -634,39 +662,6 @@ print_zone_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		                     fw3_flag_names[zone->policy_output]);
 		fw3_ipt_rule_append(r, "zone_%s_output", zone->name);
 
-		if (zone->log & FW3_ZONE_LOG_FILTER)
-		{
-			for (t = FW3_FLAG_REJECT; t <= FW3_FLAG_DROP; t++)
-			{
-				if (has(zone->flags, handle->family, fw3_to_src_target(t)))
-				{
-					r = fw3_ipt_rule_new(handle);
-
-					snprintf(buf, sizeof(buf) - 1, "%s(src %s)",
-					         fw3_flag_names[t], zone->name);
-
-					fw3_ipt_rule_limit(r, &zone->log_limit);
-					fw3_ipt_rule_target(r, "LOG");
-					fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
-					fw3_ipt_rule_append(r, "zone_%s_src_%s",
-					                    zone->name, fw3_flag_names[t]);
-				}
-
-				if (has(zone->flags, handle->family, t))
-				{
-					r = fw3_ipt_rule_new(handle);
-
-					snprintf(buf, sizeof(buf) - 1, "%s(dest %s)",
-					         fw3_flag_names[t], zone->name);
-
-					fw3_ipt_rule_limit(r, &zone->log_limit);
-					fw3_ipt_rule_target(r, "LOG");
-					fw3_ipt_rule_addarg(r, false, "--log-prefix", buf);
-					fw3_ipt_rule_append(r, "zone_%s_dest_%s",
-					                    zone->name, fw3_flag_names[t]);
-				}
-			}
-		}
 		break;
 
 	case FW3_TABLE_NAT:
