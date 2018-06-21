@@ -466,7 +466,7 @@ set_redirect(struct fw3_ipt_rule *r, struct fw3_port *port)
 		if (port->port_min == port->port_max)
 			sprintf(buf, "%u", port->port_min);
 		else
-			sprintf(buf, "%u-%u", port->port_min, port->port_max);
+			snprintf(buf, sizeof(buf), "%u-%u", port->port_min, port->port_max);
 
 		fw3_ipt_rule_addarg(r, false, "--to-ports", buf);
 	}

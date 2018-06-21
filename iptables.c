@@ -899,7 +899,7 @@ fw3_ipt_rule_sport_dport(struct fw3_ipt_rule *r,
 		if (sp->port_min == sp->port_max)
 			sprintf(buf, "%u", sp->port_min);
 		else
-			sprintf(buf, "%u:%u", sp->port_min, sp->port_max);
+			snprintf(buf, sizeof(buf), "%u:%u", sp->port_min, sp->port_max);
 
 		fw3_ipt_rule_addarg(r, sp->invert, "--sport", buf);
 	}
@@ -909,7 +909,7 @@ fw3_ipt_rule_sport_dport(struct fw3_ipt_rule *r,
 		if (dp->port_min == dp->port_max)
 			sprintf(buf, "%u", dp->port_min);
 		else
-			sprintf(buf, "%u:%u", dp->port_min, dp->port_max);
+			snprintf(buf, sizeof(buf), "%u:%u", dp->port_min, dp->port_max);
 
 		fw3_ipt_rule_addarg(r, dp->invert, "--dport", buf);
 	}
@@ -955,7 +955,7 @@ fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 		if (icmp->code6_min == 0 && icmp->code6_max == 0xFF)
 			sprintf(buf, "%u", icmp->type6);
 		else
-			sprintf(buf, "%u/%u", icmp->type6, icmp->code6_min);
+			snprintf(buf, sizeof(buf), "%u/%u", icmp->type6, icmp->code6_min);
 
 		fw3_ipt_rule_addarg(r, icmp->invert, "--icmpv6-type", buf);
 	}
@@ -965,7 +965,7 @@ fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 		if (icmp->code_min == 0 && icmp->code_max == 0xFF)
 			sprintf(buf, "%u", icmp->type);
 		else
-			sprintf(buf, "%u/%u", icmp->type, icmp->code_min);
+			snprintf(buf, sizeof(buf), "%u/%u", icmp->type, icmp->code_min);
 
 		fw3_ipt_rule_addarg(r, icmp->invert, "--icmp-type", buf);
 	}
