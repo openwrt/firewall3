@@ -88,6 +88,15 @@ enum fw3_flag
 	__FW3_FLAG_MAX
 };
 
+enum fw3_reject_code
+{
+	FW3_REJECT_CODE_TCP_RESET      = 0,
+	FW3_REJECT_CODE_PORT_UNREACH   = 1,
+	FW3_REJECT_CODE_ADM_PROHIBITED = 2,
+
+	__FW3_REJECT_CODE_MAX
+};
+
 extern const char *fw3_flag_names[__FW3_FLAG_MAX];
 
 
@@ -276,6 +285,8 @@ struct fw3_defaults
 	enum fw3_flag policy_forward;
 
 	bool drop_invalid;
+	enum fw3_reject_code tcp_reject_code;
+	enum fw3_reject_code any_reject_code;
 
 	bool syn_flood;
 	struct fw3_limit syn_flood_rate;
@@ -580,6 +591,7 @@ bool fw3_parse_bool(void *ptr, const char *val, bool is_list);
 bool fw3_parse_int(void *ptr, const char *val, bool is_list);
 bool fw3_parse_string(void *ptr, const char *val, bool is_list);
 bool fw3_parse_target(void *ptr, const char *val, bool is_list);
+bool fw3_parse_reject_code(void *ptr, const char *val, bool is_list);
 bool fw3_parse_limit(void *ptr, const char *val, bool is_list);
 bool fw3_parse_device(void *ptr, const char *val, bool is_list);
 bool fw3_parse_address(void *ptr, const char *val, bool is_list);

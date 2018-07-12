@@ -41,6 +41,8 @@ const struct fw3_option fw3_flag_opts[] = {
 	FW3_OPT("output",              target,   defaults, policy_output),
 
 	FW3_OPT("drop_invalid",        bool,     defaults, drop_invalid),
+	FW3_OPT("tcp_reject_code",     reject_code, defaults, tcp_reject_code),
+	FW3_OPT("any_reject_code",     reject_code, defaults, any_reject_code),
 
 	FW3_OPT("syn_flood",           bool,     defaults, syn_flood),
 	FW3_OPT("synflood_protect",    bool,     defaults, syn_flood),
@@ -102,6 +104,30 @@ check_offloading(struct uci_element *e, bool *offloading)
 	*offloading = false;
 }
 
+static void
+check_any_reject_code(struct uci_element *e, enum fw3_reject_code *any_reject_code)
+{
+	if (*any_reject_code == FW3_REJECT_CODE_TCP_RESET) {
+		warn_elem(e, "tcp-reset not valid for any_reject_code, defaulting to port-unreach");
+		*any_reject_code = FW3_REJECT_CODE_PORT_UNREACH;
+	}
+}
+
+static const char*
+get_reject_code(enum fw3_family family, enum fw3_reject_code reject_code)
+{
+	switch (reject_code) {
+	case FW3_REJECT_CODE_TCP_RESET:
+		return "tcp-reset";
+	case FW3_REJECT_CODE_PORT_UNREACH:
+		return "port-unreach";
+	case FW3_REJECT_CODE_ADM_PROHIBITED:
+		return family == FW3_FAMILY_V6 ? "adm-prohibited": "admin-prohib";
+	default:
+		return "unknown";
+	}
+}
+
 void
 fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 {
@@ -111,6 +137,8 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 
 	bool seen = false;
 
+	defs->tcp_reject_code      = FW3_REJECT_CODE_TCP_RESET;
+	defs->any_reject_code      = FW3_REJECT_CODE_PORT_UNREACH;
 	defs->syn_flood_rate.rate  = 25;
 	defs->syn_flood_rate.burst = 50;
 	defs->tcp_syncookies       = true;
@@ -137,6 +165,8 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 		check_policy(e, &defs->policy_input, "input");
 		check_policy(e, &defs->policy_output, "output");
 		check_policy(e, &defs->policy_forward, "forward");
+
+		check_any_reject_code(e, &defs->any_reject_code);
 
 		check_offloading(e, &defs->flow_offloading);
 	}
@@ -278,12 +308,12 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 
 		r = fw3_ipt_rule_create(handle, &tcp, NULL, NULL, NULL, NULL);
 		fw3_ipt_rule_target(r, "REJECT");
-		fw3_ipt_rule_addarg(r, false, "--reject-with", "tcp-reset");
+		fw3_ipt_rule_addarg(r, false, "--reject-with", get_reject_code(handle->family, defs->tcp_reject_code));
 		fw3_ipt_rule_append(r, "reject");
 
 		r = fw3_ipt_rule_new(handle);
 		fw3_ipt_rule_target(r, "REJECT");
-		fw3_ipt_rule_addarg(r, false, "--reject-with", "port-unreach");
+		fw3_ipt_rule_addarg(r, false, "--reject-with", get_reject_code(handle->family, defs->any_reject_code));
 		fw3_ipt_rule_append(r, "reject");
 
 		break;

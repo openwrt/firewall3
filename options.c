@@ -86,6 +86,12 @@ const char *fw3_flag_names[__FW3_FLAG_MAX] = {
 	"DROP",
 };
 
+const char *fw3_reject_code_names[__FW3_REJECT_CODE_MAX] = {
+	"tcp-reset",
+	"port-unreach",
+	"adm-prohibited",
+};
+
 const char *fw3_limit_units[__FW3_LIMIT_UNIT_MAX] = {
 	"second",
 	"minute",
@@ -167,6 +173,13 @@ fw3_parse_target(void *ptr, const char *val, bool is_list)
 {
 	return parse_enum(ptr, val, &fw3_flag_names[FW3_FLAG_ACCEPT],
 	                  FW3_FLAG_ACCEPT, FW3_FLAG_MASQUERADE);
+}
+
+bool
+fw3_parse_reject_code(void *ptr, const char *val, bool is_list)
+{
+	return parse_enum(ptr, val, &fw3_reject_code_names[FW3_REJECT_CODE_TCP_RESET],
+	                  FW3_REJECT_CODE_TCP_RESET, FW3_REJECT_CODE_ADM_PROHIBITED);
 }
 
 bool
