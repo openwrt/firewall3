@@ -85,14 +85,17 @@ check_policy(struct uci_element *e, enum fw3_flag *pol, const char *name)
 }
 
 static void
-check_offloading(struct uci_element *e, bool *offloading)
+check_kmod(struct uci_element *e, bool *module, const char *name)
 {
 	FILE *f;
+	char buf[128];
 
-	if (!*offloading)
+	if (!*module)
 		return;
 
-	f = fopen("/sys/module/xt_FLOWOFFLOAD/refcnt", "r");
+	snprintf(buf, sizeof(buf), "/sys/module/%s/refcnt", name);
+
+	f = fopen(buf, "r");
 
 	if (f)
 	{
@@ -100,8 +103,8 @@ check_offloading(struct uci_element *e, bool *offloading)
 		return;
 	}
 
-	warn_elem(e, "enables offloading but missing kernel support, disabling");
-	*offloading = false;
+	warn_elem(e, sprintf("requires module %s but missing kernel support, disabling", name));
+	*module = false;
 }
 
 static void
@@ -168,7 +171,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 
 		check_any_reject_code(e, &defs->any_reject_code);
 
-		check_offloading(e, &defs->flow_offloading);
+		check_kmod(e, &defs->flow_offloading, "xt_FLOWOFFLOAD");
 	}
 }
 
