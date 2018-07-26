@@ -45,13 +45,15 @@ fw3_ubus_connect(void)
 	struct ubus_context *ctx = ubus_connect(NULL);
 	struct blob_buf b = { };
 
+	blob_buf_init(&b, 0);
+
 	if (!ctx)
 		goto out;
 
 	if (ubus_lookup_id(ctx, "network.interface", &id))
 		goto out;
 
-	if (ubus_invoke(ctx, id, "dump", NULL, dump_cb, NULL, 2000))
+	if (ubus_invoke(ctx, id, "dump", b.head, dump_cb, NULL, 2000))
 		goto out;
 
 	status = true;
@@ -59,14 +61,15 @@ fw3_ubus_connect(void)
 	if (ubus_lookup_id(ctx, "service", &id))
 		goto out;
 
-	blob_buf_init(&b, 0);
 	blobmsg_add_string(&b, "type", "firewall");
 	ubus_invoke(ctx, id, "get_data", b.head, procd_data_cb, NULL, 2000);
-	blob_buf_free(&b);
 
 out:
+	blob_buf_free(&b);
+
 	if (ctx)
 		ubus_free(ctx);
+
 	return status;
 }
 
