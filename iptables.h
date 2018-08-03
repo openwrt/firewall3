@@ -93,6 +93,8 @@ void fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time);
 
 void fw3_ipt_rule_mark(struct fw3_ipt_rule *r, struct fw3_mark *mark);
 
+void fw3_ipt_rule_dscp(struct fw3_ipt_rule *r, struct fw3_dscp *dscp);
+
 void fw3_ipt_rule_comment(struct fw3_ipt_rule *r, const char *fmt, ...);
 
 void fw3_ipt_rule_extra(struct fw3_ipt_rule *r, const char *extra);

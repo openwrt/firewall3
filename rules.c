@@ -62,6 +62,9 @@ const struct fw3_option fw3_rule_opts[] = {
 	FW3_OPT("set_mark",            mark,      rule,     set_mark),
 	FW3_OPT("set_xmark",           mark,      rule,     set_xmark),
 
+	FW3_OPT("dscp",                dscp,      rule,     dscp),
+	FW3_OPT("set_dscp",            dscp,      rule,     set_dscp),
+
 	FW3_OPT("target",              target,    rule,     target),
 
 	{ }
@@ -156,19 +159,28 @@ check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 	    r->target == FW3_FLAG_MARK)
 	{
 		warn_section("rule", r, e, "is set to target MARK but specifies neither "
-		                "'set_mark' nor 'set_xmark' option");
+		                           "'set_mark' nor 'set_xmark' option");
 		return false;
 	}
 
-	if (r->_dest && r->target == FW3_FLAG_MARK)
+	if (!r->set_dscp.set && r->target == FW3_FLAG_DSCP)
 	{
-		warn_section("rule", r, e, "must not specify 'dest' for MARK target");
+		warn_section("rule", r, e, "is set to target DSCP but specifies no "
+		                           "'set_dscp' option");
 		return false;
 	}
 
-	if (r->set_mark.invert || r->set_xmark.invert)
+	if (r->_dest && (r->target == FW3_FLAG_MARK || r->target == FW3_FLAG_DSCP))
 	{
-		warn_section("rule", r, e, "must not have inverted 'set_mark' or 'set_xmark'");
+		warn_section("rule", r, e, "must not specify 'dest' for %s target",
+		             fw3_flag_names[r->target]);
+		return false;
+	}
+
+	if (r->set_mark.invert || r->set_xmark.invert || r->set_dscp.invert)
+	{
+		warn_section("rule", r, e, "must not have inverted 'set_mark', "
+		                           "'set_xmark' or 'set_dscp'");
 		return false;
 	}
 
@@ -202,7 +214,7 @@ check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 		warn_section("rule", r, e, "has no target specified, defaulting to REJECT");
 		r->target = FW3_FLAG_REJECT;
 	}
-	else if (r->target > FW3_FLAG_MARK)
+	else if (r->target > FW3_FLAG_DSCP)
 	{
 		warn_section("rule", r, e, "has invalid target specified, defaulting to REJECT");
 		r->target = FW3_FLAG_REJECT;
@@ -297,7 +309,8 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 	{
 		snprintf(chain, sizeof(chain), "zone_%s_helper", rule->src.name);
 	}
-	else if (rule->target == FW3_FLAG_MARK && (rule->_src || rule->src.any))
+	else if ((rule->target == FW3_FLAG_MARK || rule->target == FW3_FLAG_DSCP) &&
+	         (rule->_src || rule->src.any))
 	{
 		snprintf(chain, sizeof(chain), "PREROUTING");
 	}
@@ -351,6 +364,13 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 
 		fw3_ipt_rule_target(r, "MARK");
 		fw3_ipt_rule_addarg(r, false, name, buf);
+		return;
+
+	case FW3_FLAG_DSCP:
+		sprintf(buf, "0x%x", rule->set_dscp.dscp);
+
+		fw3_ipt_rule_target(r, "DSCP");
+		fw3_ipt_rule_addarg(r, false, "--set-dscp", buf);
 		return;
 
 	case FW3_FLAG_NOTRACK:
@@ -461,6 +481,7 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	fw3_ipt_rule_limit(r, &rule->limit);
 	fw3_ipt_rule_time(r, &rule->time);
 	fw3_ipt_rule_mark(r, &rule->mark);
+	fw3_ipt_rule_dscp(r, &rule->dscp);
 	set_target(r, rule);
 	fw3_ipt_rule_extra(r, rule->extra);
 	set_comment(r, rule->name, num);
@@ -492,6 +513,7 @@ expand_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	if ((rule->target == FW3_FLAG_NOTRACK && handle->table != FW3_TABLE_RAW) ||
 	    (rule->target == FW3_FLAG_HELPER && handle->table != FW3_TABLE_RAW)  ||
 	    (rule->target == FW3_FLAG_MARK && handle->table != FW3_TABLE_MANGLE) ||
+	    (rule->target == FW3_FLAG_DSCP && handle->table != FW3_TABLE_MANGLE) ||
 		(rule->target < FW3_FLAG_NOTRACK && handle->table != FW3_TABLE_FILTER))
 		return;
 

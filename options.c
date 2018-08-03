@@ -77,6 +77,7 @@ const char *fw3_flag_names[__FW3_FLAG_MAX] = {
 	"NOTRACK",
 	"HELPER",
 	"MARK",
+	"DSCP",
 	"DNAT",
 	"SNAT",
 	"MASQUERADE",
@@ -133,6 +134,31 @@ static const char *include_types[] = {
 static const char *reflection_sources[] = {
 	"internal",
 	"external",
+};
+
+static const struct { const char *name; uint8_t dscp; } dscp_classes[] = {
+	{ "CS0",  0x00 },
+	{ "CS1",  0x08 },
+	{ "CS2",  0x10 },
+	{ "CS3",  0x18 },
+	{ "CS4",  0x20 },
+	{ "CS5",  0x28 },
+	{ "CS6",  0x30 },
+	{ "CS7",  0x38 },
+	{ "BE",   0x00 },
+	{ "AF11", 0x0a },
+	{ "AF12", 0x0c },
+	{ "AF13", 0x0e },
+	{ "AF21", 0x12 },
+	{ "AF22", 0x14 },
+	{ "AF23", 0x16 },
+	{ "AF31", 0x1a },
+	{ "AF32", 0x1c },
+	{ "AF33", 0x1e },
+	{ "AF41", 0x22 },
+	{ "AF42", 0x24 },
+	{ "AF43", 0x26 },
+	{ "EF",   0x2e }
 };
 
 
@@ -855,6 +881,39 @@ fw3_parse_mark(void *ptr, const char *val, bool is_list)
 	}
 
 	m->set = true;
+	return true;
+}
+
+bool
+fw3_parse_dscp(void *ptr, const char *val, bool is_list)
+{
+	uint32_t n;
+	char *e;
+	struct fw3_dscp *d = ptr;
+
+	if (*val == '!')
+	{
+		d->invert = true;
+		while (isspace(*++val));
+	}
+
+	for (n = 0; n < sizeof(dscp_classes) / sizeof(dscp_classes[0]); n++)
+	{
+		if (strcmp(dscp_classes[n].name, val))
+			continue;
+
+		d->set = true;
+		d->dscp = dscp_classes[n].dscp;
+		return true;
+	}
+
+	n = strtoul(val, &e, 0);
+
+	if (e == val || *e || n > 0x3F)
+		return false;
+
+	d->set = true;
+	d->dscp = n;
 	return true;
 }
 

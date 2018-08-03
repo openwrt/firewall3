@@ -73,17 +73,18 @@ enum fw3_flag
 	FW3_FLAG_NOTRACK       = 9,
 	FW3_FLAG_HELPER        = 10,
 	FW3_FLAG_MARK          = 11,
-	FW3_FLAG_DNAT          = 12,
-	FW3_FLAG_SNAT          = 13,
-	FW3_FLAG_MASQUERADE    = 14,
-	FW3_FLAG_SRC_ACCEPT    = 15,
-	FW3_FLAG_SRC_REJECT    = 16,
-	FW3_FLAG_SRC_DROP      = 17,
-	FW3_FLAG_CUSTOM_CHAINS = 18,
-	FW3_FLAG_SYN_FLOOD     = 19,
-	FW3_FLAG_MTU_FIX       = 20,
-	FW3_FLAG_DROP_INVALID  = 21,
-	FW3_FLAG_HOTPLUG       = 22,
+	FW3_FLAG_DSCP          = 12,
+	FW3_FLAG_DNAT          = 13,
+	FW3_FLAG_SNAT          = 14,
+	FW3_FLAG_MASQUERADE    = 15,
+	FW3_FLAG_SRC_ACCEPT    = 16,
+	FW3_FLAG_SRC_REJECT    = 17,
+	FW3_FLAG_SRC_DROP      = 18,
+	FW3_FLAG_CUSTOM_CHAINS = 19,
+	FW3_FLAG_SYN_FLOOD     = 20,
+	FW3_FLAG_MTU_FIX       = 21,
+	FW3_FLAG_DROP_INVALID  = 22,
+	FW3_FLAG_HOTPLUG       = 23,
 
 	__FW3_FLAG_MAX
 };
@@ -268,6 +269,13 @@ struct fw3_mark
 	uint32_t mask;
 };
 
+struct fw3_dscp
+{
+	bool set;
+	bool invert;
+	uint8_t dscp;
+};
+
 struct fw3_cthelpermatch
 {
 	struct list_head list;
@@ -382,10 +390,12 @@ struct fw3_rule
 	struct fw3_limit limit;
 	struct fw3_time time;
 	struct fw3_mark mark;
+	struct fw3_dscp dscp;
 
 	enum fw3_flag target;
 	struct fw3_mark set_mark;
 	struct fw3_mark set_xmark;
+	struct fw3_dscp set_dscp;
 	struct fw3_cthelpermatch set_helper;
 
 	const char *extra;
@@ -613,6 +623,7 @@ bool fw3_parse_time(void *ptr, const char *val, bool is_list);
 bool fw3_parse_weekdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_monthdays(void *ptr, const char *val, bool is_list);
 bool fw3_parse_mark(void *ptr, const char *val, bool is_list);
+bool fw3_parse_dscp(void *ptr, const char *val, bool is_list);
 bool fw3_parse_setmatch(void *ptr, const char *val, bool is_list);
 bool fw3_parse_direction(void *ptr, const char *val, bool is_list);
 bool fw3_parse_cthelper(void *ptr, const char *val, bool is_list);

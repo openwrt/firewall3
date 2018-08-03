@@ -1141,6 +1141,20 @@ fw3_ipt_rule_mark(struct fw3_ipt_rule *r, struct fw3_mark *mark)
 }
 
 void
+fw3_ipt_rule_dscp(struct fw3_ipt_rule *r, struct fw3_dscp *dscp)
+{
+	char buf[sizeof("0xFF\0")];
+
+	if (!dscp || !dscp->set)
+		return;
+
+	sprintf(buf, "0x%x", dscp->dscp);
+
+	fw3_ipt_rule_addarg(r, false, "-m", "dscp");
+	fw3_ipt_rule_addarg(r, dscp->invert, "--dscp", buf);
+}
+
+void
 fw3_ipt_rule_comment(struct fw3_ipt_rule *r, const char *fmt, ...)
 {
 	va_list ap;
