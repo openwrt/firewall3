@@ -103,7 +103,7 @@ check_kmod(struct uci_element *e, bool *module, const char *name)
 		return;
 	}
 
-	warn_elem(e, sprintf("requires module %s but missing kernel support, disabling", name));
+	warn_elem(e, "requires not available kernel module %s, disabling", name);
 	*module = false;
 }
 
