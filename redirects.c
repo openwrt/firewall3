@@ -61,6 +61,7 @@ const struct fw3_option fw3_redirect_opts[] = {
 	FW3_OPT("reflection",          bool,      redirect,     reflection),
 	FW3_OPT("reflection_src",      reflection_source,
 	                                          redirect,     reflection_src),
+	FW3_LIST("reflection_zone",    device,    redirect,     reflection_zones),
 
 	FW3_OPT("target",              target,    redirect,     target),
 
@@ -366,6 +367,7 @@ fw3_alloc_redirect(struct fw3_state *state)
 
 	INIT_LIST_HEAD(&redir->proto);
 	INIT_LIST_HEAD(&redir->mac_src);
+	INIT_LIST_HEAD(&redir->reflection_zones);
 
 	redir->enabled = true;
 	redir->reflection = true;
@@ -611,7 +613,7 @@ static void
 print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
                  struct fw3_redirect *redir, int num,
                  struct fw3_protocol *proto, struct fw3_address *ra,
-                 struct fw3_address *ia, struct fw3_address *ea)
+                 struct fw3_address *ia, struct fw3_address *ea, struct fw3_device *rz)
 {
 	struct fw3_ipt_rule *r;
 
@@ -624,7 +626,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, "reflection");
 		set_snat_dnat(r, FW3_FLAG_DNAT, &redir->ip_redir, &redir->port_redir);
-		fw3_ipt_rule_replace(r, "zone_%s_prerouting", redir->dest.name);
+		fw3_ipt_rule_replace(r, "zone_%s_prerouting", rz->name);
 
 		r = fw3_ipt_rule_create(h, proto, NULL, NULL, ia, &redir->ip_redir);
 		fw3_ipt_rule_sport_dport(r, NULL, &redir->port_redir);
@@ -632,7 +634,7 @@ print_reflection(struct fw3_ipt_handle *h, struct fw3_state *state,
 		fw3_ipt_rule_time(r, &redir->time);
 		set_comment(r, redir->name, num, "reflection");
 		set_snat_dnat(r, FW3_FLAG_SNAT, ra, NULL);
-		fw3_ipt_rule_replace(r, "zone_%s_postrouting", redir->dest.name);
+		fw3_ipt_rule_replace(r, "zone_%s_postrouting", rz->name);
 		break;
 
 	default:
@@ -648,6 +650,8 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	struct fw3_address *ext_addr, *int_addr, ref_addr;
 	struct fw3_protocol *proto;
 	struct fw3_mac *mac;
+	struct fw3_device *reflection_zone;
+	struct fw3_zone *zone;
 
 	if (redir->name)
 		info("   * Redirect '%s'", redir->name);
@@ -704,9 +708,8 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		return;
 
 	ext_addrs = fw3_resolve_zone_addresses(redir->_src, &redir->ip_dest);
-	int_addrs = fw3_resolve_zone_addresses(redir->_dest, NULL);
 
-	if (!ext_addrs || !int_addrs)
+	if (!ext_addrs)
 		goto out;
 
 	list_for_each_entry(ext_addr, ext_addrs, list)
@@ -714,26 +717,43 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		if (!fw3_is_family(ext_addr, handle->family))
 			continue;
 
-		list_for_each_entry(int_addr, int_addrs, list)
+		for (reflection_zone = list_empty(&redir->reflection_zones)
+		       ? &redir->dest
+		       : list_first_entry(&redir->reflection_zones, struct fw3_device, list);
+		     list_empty(&redir->reflection_zones)
+		       ? (reflection_zone == &redir->dest)
+		       : (&reflection_zone->list != &redir->reflection_zones);
+		     reflection_zone = list_empty(&redir->reflection_zones)
+		       ? NULL
+		       : list_entry(reflection_zone->list.next, struct fw3_device, list))
 		{
-			if (!fw3_is_family(int_addr, handle->family))
+			zone = fw3_lookup_zone(state, reflection_zone->name);
+
+			if (!zone)
 				continue;
 
-			fw3_foreach(proto, &redir->proto)
+			int_addrs = fw3_resolve_zone_addresses(zone, NULL);
+			list_for_each_entry(int_addr, int_addrs, list)
 			{
-				if (!proto)
+				if (!fw3_is_family(int_addr, handle->family))
 					continue;
 
-				if (redir->reflection_src == FW3_REFLECTION_INTERNAL)
-					ref_addr = *int_addr;
-				else
-					ref_addr = *ext_addr;
+				fw3_foreach(proto, &redir->proto)
+				{
+					if (!proto)
+						continue;
 
-				ref_addr.mask.v4.s_addr = 0xFFFFFFFF;
-				ext_addr->mask.v4.s_addr = 0xFFFFFFFF;
+					if (redir->reflection_src == FW3_REFLECTION_INTERNAL)
+						ref_addr = *int_addr;
+					else
+						ref_addr = *ext_addr;
 
-				print_reflection(handle, state, redir, num, proto,
-								 &ref_addr, int_addr, ext_addr);
+					ref_addr.mask.v4.s_addr = 0xFFFFFFFF;
+					ext_addr->mask.v4.s_addr = 0xFFFFFFFF;
+
+					print_reflection(handle, state, redir, num, proto,
+					                 &ref_addr, int_addr, ext_addr, reflection_zone);
+				}
 			}
 		}
 	}

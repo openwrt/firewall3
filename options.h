@@ -441,6 +441,7 @@ struct fw3_redirect
 	bool local;
 	bool reflection;
 	enum fw3_reflection_source reflection_src;
+	struct list_head reflection_zones;
 };
 
 struct fw3_snat
