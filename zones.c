@@ -98,7 +98,6 @@ const struct fw3_option fw3_zone_opts[] = {
 	{ }
 };
 
-
 static void
 check_policy(struct uci_element *e, enum fw3_flag *pol, enum fw3_flag def,
              const char *name)
@@ -557,22 +556,27 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	}
 	else if (handle->table == FW3_TABLE_RAW)
 	{
+		bool loopback_dev = (dev != NULL && !dev->any &&
+				     !dev->invert && fw3_check_loopback_dev(dev->name));
+		char *chain = loopback_dev || (sub != NULL && !sub->invert && fw3_check_loopback_addr(sub)) ?
+			      "OUTPUT" : "PREROUTING";
+
 		if (has(zone->flags, handle->family, FW3_FLAG_HELPER))
 		{
-			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+			r = fw3_ipt_rule_create(handle, NULL, loopback_dev ? NULL : dev, NULL, sub, NULL);
 			fw3_ipt_rule_comment(r, "%s CT helper assignment", zone->name);
 			fw3_ipt_rule_target(r, "zone_%s_helper", zone->name);
 			fw3_ipt_rule_extra(r, zone->extra_src);
-			fw3_ipt_rule_replace(r, "PREROUTING");
+			fw3_ipt_rule_replace(r, chain);
 		}
 
 		if (has(zone->flags, handle->family, FW3_FLAG_NOTRACK))
 		{
-			r = fw3_ipt_rule_create(handle, NULL, dev, NULL, sub, NULL);
+			r = fw3_ipt_rule_create(handle, NULL, loopback_dev ? NULL : dev, NULL, sub, NULL);
 			fw3_ipt_rule_comment(r, "%s CT bypass", zone->name);
 			fw3_ipt_rule_target(r, "zone_%s_notrack", zone->name);
 			fw3_ipt_rule_extra(r, zone->extra_src);
-			fw3_ipt_rule_replace(r, "PREROUTING");
+			fw3_ipt_rule_replace(r, chain);
 		}
 	}
 }

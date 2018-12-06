@@ -17,6 +17,10 @@
  */
 
 #define _GNU_SOURCE
+
+#include <net/if.h>
+#include <sys/ioctl.h>
+
 #include "utils.h"
 #include "options.h"
 
@@ -934,4 +938,38 @@ fw3_protoname(void *proto)
 	}
 
 	return pe->p_name;
+}
+
+bool
+fw3_check_loopback_dev(const char *name)
+{
+	struct ifreq ifr;
+	int s = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	bool rv = false;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name) - 1);
+
+	if (s < 0 || ioctl(s, SIOCGIFFLAGS, &ifr) < 0)
+		goto out;
+
+	if (ifr.ifr_flags & IFF_LOOPBACK)
+		rv = true;
+out:
+	return rv;
+}
+
+bool
+fw3_check_loopback_addr(struct fw3_address *addr)
+{
+	if (addr->family == FW3_FAMILY_V4 &&
+	    (ntohl(addr->address.v4.s_addr) >> IN_CLASSA_NSHIFT) == IN_LOOPBACKNET)
+		return true;
+
+	if (addr->family == FW3_FAMILY_V6 && !addr->range &&
+	    fw3_netmask2bitlen(FW3_FAMILY_V6, &addr->mask.v6) == 128 &&
+	    IN6_IS_ADDR_LOOPBACK(&addr->address.v6))
+		return true;
+
+	return false;
 }

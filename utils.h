@@ -44,6 +44,8 @@
 
 extern bool fw3_pr_debug;
 
+struct fw3_address;
+
 void warn_elem(struct uci_element *e, const char *format, ...);
 void warn(const char *format, ...);
 void error(const char *format, ...);
@@ -120,4 +122,7 @@ bool fw3_attr_parse_name_type(struct blob_attr *entry, const char **name, const 
 
 const char * fw3_protoname(void *proto);
 
+bool fw3_check_loopback_dev(const char *name);
+
+bool fw3_check_loopback_addr(struct fw3_address *addr);
 #endif
