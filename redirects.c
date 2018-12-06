@@ -350,7 +350,7 @@ check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_e
 	if (!valid)
 		return false;
 
-	if (!redir->port_redir.set)
+	if (redir->target == FW3_FLAG_DNAT && !redir->port_redir.set)
 		redir->port_redir = redir->port_dest;
 
 	return true;
