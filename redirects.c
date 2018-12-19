@@ -154,7 +154,7 @@ resolve_dest(struct uci_element *e, struct fw3_redirect *redir,
 			if (!compare_addr(addr, &redir->ip_redir))
 				continue;
 
-			strncpy(redir->dest.name, zone->name, sizeof(redir->dest.name));
+			strncpy(redir->dest.name, zone->name, sizeof(redir->dest.name) - 1);
 			redir->dest.set = true;
 			redir->_dest = zone;
 

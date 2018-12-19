@@ -939,7 +939,7 @@ fw3_parse_setmatch(void *ptr, const char *val, bool is_list)
 		return false;
 	}
 
-	strncpy(m->name, p, sizeof(m->name));
+	strncpy(m->name, p, sizeof(m->name) - 1);
 
 	for (i = 0, p = strtok(NULL, " \t,");
 	     i < 3 && p != NULL;
