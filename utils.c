@@ -252,6 +252,7 @@ __fw3_command_pipe(bool silent, const char *command, ...)
 	switch ((pid = fork()))
 	{
 	case -1:
+		free(args);
 		return false;
 
 	case 0:
@@ -275,6 +276,7 @@ __fw3_command_pipe(bool silent, const char *command, ...)
 	}
 
 	pipe_fd = fdopen(pfds[1], "w");
+	free(args);
 	return true;
 }
 
