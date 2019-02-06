@@ -501,6 +501,10 @@ struct fw3_ipset
 	struct list_head list;
 
 	bool enabled;
+	bool reload_set;
+	bool counters;
+	bool comment;
+
 	const char *name;
 	enum fw3_family family;
 

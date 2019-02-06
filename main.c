@@ -224,8 +224,10 @@ stop(bool complete)
 		rv = 0;
 	}
 
-	if (run_state)
-		fw3_destroy_ipsets(run_state);
+	if (run_state) {
+		for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
+			fw3_destroy_ipsets(run_state, family, false);
+	}
 
 	if (complete)
 		fw3_flush_conntrack(NULL);
@@ -244,11 +246,11 @@ start(void)
 	enum fw3_table table;
 	struct fw3_ipt_handle *handle;
 
-	if (!print_family)
-		fw3_create_ipsets(cfg_state);
-
 	for (family = FW3_FAMILY_V4; family <= FW3_FAMILY_V6; family++)
 	{
+		if (!print_family)
+			fw3_create_ipsets(cfg_state, family, false);
+
 		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
 			continue;
 
@@ -352,12 +354,16 @@ reload(void)
 			fw3_ipt_close(handle);
 		}
 
+		fw3_destroy_ipsets(run_state, family, true);
+
 		family_set(run_state, family, false);
 		family_set(cfg_state, family, false);
 
 start:
 		if (family == FW3_FAMILY_V6 && cfg_state->defaults.disable_ipv6)
 			continue;
+
+		fw3_create_ipsets(cfg_state, family, true);
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{

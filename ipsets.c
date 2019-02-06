@@ -21,6 +21,9 @@
 
 const struct fw3_option fw3_ipset_opts[] = {
 	FW3_OPT("enabled",       bool,           ipset,     enabled),
+	FW3_OPT("reload_set",	 bool,           ipset,     reload_set),
+	FW3_OPT("counters",	 bool,           ipset,     counters),
+	FW3_OPT("comment",	 bool,           ipset,     comment),
 
 	FW3_OPT("name",          string,         ipset,     name),
 	FW3_OPT("family",        family,         ipset,     family),
@@ -204,6 +207,10 @@ check_types(struct uci_element *e, struct fw3_ipset *ipset)
 static bool
 check_ipset(struct fw3_state *state, struct fw3_ipset *ipset, struct uci_element *e)
 {
+	if (!ipset->enabled) {
+		return false;
+	}
+
 	if (ipset->external)
 	{
 		if (!*ipset->external)
@@ -252,8 +259,11 @@ fw3_alloc_ipset(struct fw3_state *state)
 	INIT_LIST_HEAD(&ipset->datatypes);
 	INIT_LIST_HEAD(&ipset->entries);
 
-	ipset->enabled = true;
-	ipset->family  = FW3_FAMILY_V4;
+	ipset->comment    = false;
+	ipset->counters   = false;
+	ipset->enabled    = true;
+	ipset->family     = FW3_FAMILY_V4;
+	ipset->reload_set = false;
 
 	list_add_tail(&ipset->list, &state->ipsets);
 
@@ -389,6 +399,12 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 	if (ipset->hashsize > 0)
 		fw3_pr(" hashsize %u", ipset->hashsize);
 
+	if (ipset->counters)
+		fw3_pr(" counters");
+
+	if (ipset->comment)
+		fw3_pr(" comment");
+
 	fw3_pr("\n");
 
 	list_for_each_entry(entry, &ipset->entries, list)
@@ -398,9 +414,10 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 }
 
 void
-fw3_create_ipsets(struct fw3_state *state)
+fw3_create_ipsets(struct fw3_state *state, enum fw3_family family,
+		  bool reload_set)
 {
-	int tries;
+	unsigned int delay, tries;
 	bool exec = false;
 	struct fw3_ipset *ipset;
 
@@ -410,6 +427,10 @@ fw3_create_ipsets(struct fw3_state *state)
 	/* spawn ipsets */
 	list_for_each_entry(ipset, &state->ipsets, list)
 	{
+		if (ipset->family != family ||
+		    (reload_set && !ipset->reload_set))
+			continue;
+
 		if (ipset->external)
 			continue;
 
@@ -430,27 +451,36 @@ fw3_create_ipsets(struct fw3_state *state)
 		fw3_command_close();
 	}
 
-	/* wait for ipsets to appear */
+	/* wait a little expontially for ipsets to appear */
 	list_for_each_entry(ipset, &state->ipsets, list)
 	{
 		if (ipset->external)
 			continue;
 
+		delay = 5;
 		for (tries = 0; !fw3_check_ipset(ipset) && tries < 10; tries++)
-			usleep(50000);
+			usleep(delay<<1);
 	}
 }
 
 void
-fw3_destroy_ipsets(struct fw3_state *state)
+fw3_destroy_ipsets(struct fw3_state *state, enum fw3_family family,
+		   bool reload_set)
 {
-	int tries;
+	unsigned int delay, tries;
 	bool exec = false;
 	struct fw3_ipset *ipset;
+
+	if (state->disable_ipsets)
+		return;
 
 	/* destroy ipsets */
 	list_for_each_entry(ipset, &state->ipsets, list)
 	{
+		if (ipset->family != family ||
+		    (reload_set && !ipset->reload_set))
+			continue;
+
 		if (!exec)
 		{
 			exec = fw3_command_pipe(false, "ipset", "-exist", "-");
@@ -477,8 +507,9 @@ fw3_destroy_ipsets(struct fw3_state *state)
 		if (ipset->external)
 			continue;
 
+		delay = 5;
 		for (tries = 0; fw3_check_ipset(ipset) && tries < 10; tries++)
-			usleep(50000);
+			usleep(delay<<1);
 	}
 }
 

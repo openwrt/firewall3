@@ -586,6 +586,11 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 	uci_set(ctx, &ptr);
 
 	ptr.o      = NULL;
+	ptr.option = "reload_set";
+	ptr.value  = s->reload_set ? "true" : "false";
+	uci_set(ctx, &ptr);
+
+	ptr.o      = NULL;
 	ptr.option = "storage";
 	ptr.value  = fw3_ipset_method_names[s->method];
 	uci_set(ctx, &ptr);
