@@ -55,6 +55,8 @@
 
 #include "iptables.h"
 
+#define XT_LOCK_NAME "/var/run/xtables.lock"
+static int xt_lock_fd = -1;
 
 struct fw3_ipt_rule {
 	struct fw3_ipt_handle *h;
@@ -168,6 +170,11 @@ fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 
 	xtables_init();
 
+	while (!fw3_lock_path(&xt_lock_fd, XT_LOCK_NAME)) {
+		warn("Currently busy xtables.lock - wait 1 second");
+		sleep(1);
+	}
+
 	if (family == FW3_FAMILY_V6)
 	{
 #ifndef DISABLE_IPV6
@@ -192,6 +199,7 @@ fw3_ipt_open(enum fw3_family family, enum fw3_table table)
 	if (!h->handle)
 	{
 		free(h);
+		fw3_unlock_path(&xt_lock_fd, XT_LOCK_NAME);
 		return NULL;
 	}
 
@@ -561,6 +569,7 @@ fw3_ipt_commit(struct fw3_ipt_handle *h)
 void
 fw3_ipt_close(struct fw3_ipt_handle *h)
 {
+	fw3_unlock_path(&xt_lock_fd, XT_LOCK_NAME);
 	free(h);
 }
 
