@@ -28,7 +28,7 @@
 #include "ipsets.h"
 
 
-static int lock_fd = -1;
+static int fw3_lock_fd = -1;
 static pid_t pipe_pid = -1;
 static FILE *pipe_fd = NULL;
 
@@ -346,13 +346,13 @@ fw3_has_table(bool ipv6, const char *table)
 
 
 bool
-fw3_lock(void)
+fw3_lock_path(int *fd, const char *path)
 {
-	lock_fd = open(FW3_LOCKFILE, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
+	int lock_fd = open(path, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
 
 	if (lock_fd < 0)
 	{
-		warn("Cannot create lock file %s: %s", FW3_LOCKFILE, strerror(errno));
+		warn("Cannot create lock file %s: %s", path, strerror(errno));
 		return false;
 	}
 
@@ -362,22 +362,38 @@ fw3_lock(void)
 		return false;
 	}
 
+	*fd = lock_fd;
+
 	return true;
 }
+
+bool
+fw3_lock()
+{
+	return fw3_lock_path(&fw3_lock_fd, FW3_LOCKFILE);
+}
+
+
+void
+fw3_unlock_path(int *fd, const char *lockpath)
+{
+	if (*fd < 0)
+		return;
+
+	if (flock(*fd, LOCK_UN))
+		warn("Cannot release exclusive lock: %s", strerror(errno));
+
+	close(*fd);
+	unlink(FW3_LOCKFILE);
+
+	*fd = -1;
+}
+
 
 void
 fw3_unlock(void)
 {
-	if (lock_fd < 0)
-		return;
-
-	if (flock(lock_fd, LOCK_UN))
-		warn("Cannot release exclusive lock: %s", strerror(errno));
-
-	close(lock_fd);
-	unlink(FW3_LOCKFILE);
-
-	lock_fd = -1;
+	fw3_unlock_path(&fw3_lock_fd, FW3_LOCKFILE);
 }
 
 

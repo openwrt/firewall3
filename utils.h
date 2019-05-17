@@ -102,6 +102,8 @@ bool fw3_has_table(bool ipv6, const char *table);
 
 bool fw3_lock(void);
 void fw3_unlock(void);
+bool fw3_lock_path(int *fw3_lock_fd, const char *path);
+void fw3_unlock_path(int *fw3_lock_fd, const char *path);
 
 
 void fw3_write_statefile(void *state);
