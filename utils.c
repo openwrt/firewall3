@@ -944,18 +944,24 @@ bool
 fw3_check_loopback_dev(const char *name)
 {
 	struct ifreq ifr;
-	int s = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	int s;
 	bool rv = false;
+
+	s = socket(AF_LOCAL, SOCK_DGRAM, 0);
+
+	if (s < 0)
+		return false;
 
 	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name) - 1);
 
-	if (s < 0 || ioctl(s, SIOCGIFFLAGS, &ifr) < 0)
-		goto out;
+	if (ioctl(s, SIOCGIFFLAGS, &ifr) >= 0) {
+		if (ifr.ifr_flags & IFF_LOOPBACK)
+			rv = true;
+	}
 
-	if (ifr.ifr_flags & IFF_LOOPBACK)
-		rv = true;
-out:
+	close(s);
+
 	return rv;
 }
 
