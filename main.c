@@ -354,6 +354,7 @@ reload(void)
 			fw3_ipt_close(handle);
 		}
 
+		fw3_ipsets_update_run_state(family, run_state, cfg_state);
 		fw3_destroy_ipsets(run_state, family, true);
 
 		family_set(run_state, family, false);

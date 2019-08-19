@@ -427,11 +427,14 @@ fw3_create_ipsets(struct fw3_state *state, enum fw3_family family,
 	/* spawn ipsets */
 	list_for_each_entry(ipset, &state->ipsets, list)
 	{
-		if (ipset->family != family ||
-		    (reload_set && !ipset->reload_set))
+		if (ipset->family != family)
 			continue;
 
 		if (ipset->external)
+			continue;
+
+		if (fw3_check_ipset(ipset) &&
+		    (reload_set && !ipset->reload_set))
 			continue;
 
 		if (!exec)
@@ -567,4 +570,44 @@ out:
 		close(s);
 
 	return rv;
+}
+
+void
+fw3_ipsets_update_run_state(enum fw3_family family, struct fw3_state *run_state,
+			    struct fw3_state *cfg_state)
+{
+	struct fw3_ipset *ipset_run, *ipset_cfg;
+	bool in_cfg;
+
+	list_for_each_entry(ipset_run, &run_state->ipsets, list) {
+		if (ipset_run->family != family)
+			continue;
+
+		in_cfg = false;
+
+		list_for_each_entry(ipset_cfg, &cfg_state->ipsets, list) {
+			if (ipset_cfg->family != family)
+				continue;
+
+			if (strlen(ipset_run->name) ==
+			    strlen(ipset_cfg->name) &&
+			    !strcmp(ipset_run->name, ipset_cfg->name)) {
+				in_cfg = true;
+				break;
+			}
+		}
+
+		/* If a set is found in run_state, but not in cfg_state then the
+		 * set has been deleted/renamed. Set reload_set to true to force
+		 * the old set to be destroyed in the "stop" fase of the reload.
+		 * If the set is found, then copy the reload_set value from the
+		 * configuration state. This ensures that the elements are
+		 * always updated according to the configuration, and not the
+		 * runtime state (which the user might have forgotten).
+		 */
+		if (!in_cfg)
+			ipset_run->reload_set = true;
+		else
+			ipset_run->reload_set = ipset_cfg->reload_set;
+	}
 }

@@ -586,8 +586,11 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 	uci_set(ctx, &ptr);
 
 	ptr.o      = NULL;
-	ptr.option = "reload_set";
-	ptr.value  = s->reload_set ? "true" : "false";
+	ptr.option = "family";
+	if (s->family == FW3_FAMILY_V4)
+		ptr.value = "ipv4";
+	else
+		ptr.value = "ipv6";
 	uci_set(ctx, &ptr);
 
 	ptr.o      = NULL;

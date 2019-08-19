@@ -37,6 +37,10 @@ struct fw3_ipset * fw3_lookup_ipset(struct fw3_state *state, const char *name);
 
 bool fw3_check_ipset(struct fw3_ipset *set);
 
+void
+fw3_ipsets_update_run_state(enum fw3_family family, struct fw3_state *run_state,
+			    struct fw3_state *cfg_state);
+
 static inline void fw3_free_ipset(struct fw3_ipset *ipset)
 {
 	list_del(&ipset->list);
