@@ -393,7 +393,7 @@ set_default(const char *name, int set)
 
 	snprintf(path, sizeof(path), "/proc/sys/net/ipv4/tcp_%s", name);
 
-	info(" * Set tcp_%s to %s", name, set ? "on" : "off", name);
+	info(" * Set tcp_%s to %s", name, set ? "on" : "off");
 
 	if (!(f = fopen(path, "w")))
 	{

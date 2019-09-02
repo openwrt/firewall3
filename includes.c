@@ -140,7 +140,7 @@ print_include(struct fw3_include *include)
 	}
 
 	while (fgets(line, sizeof(line), f))
-		fw3_pr(line);
+		fw3_pr("%s", line);
 
 	fclose(f);
 }

@@ -46,10 +46,14 @@ extern bool fw3_pr_debug;
 
 struct fw3_address;
 
-void warn_elem(struct uci_element *e, const char *format, ...);
-void warn(const char *format, ...);
-void error(const char *format, ...);
-void info(const char *format, ...);
+void warn_elem(struct uci_element *e, const char *format, ...)
+	__attribute__ ((format (printf, 2, 3)));
+void warn(const char *format, ...)
+	__attribute__ ((format (printf, 1, 2)));
+void error(const char *format, ...)
+	__attribute__ ((format (printf, 1, 2)));
+void info(const char *format, ...)
+	__attribute__ ((format (printf, 1, 2)));
 
 
 #define warn_section(t, r, e, fmt, ...)					\
@@ -96,7 +100,8 @@ bool __fw3_command_pipe(bool silent, const char *command, ...);
 #define fw3_command_pipe(...) __fw3_command_pipe(__VA_ARGS__, NULL)
 
 void fw3_command_close(void);
-void fw3_pr(const char *fmt, ...);
+void fw3_pr(const char *fmt, ...)
+	__attribute__ ((format (printf, 1, 2)));
 
 bool fw3_has_table(bool ipv6, const char *table);
 

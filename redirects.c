@@ -254,14 +254,13 @@ check_redirect(struct fw3_state *state, struct fw3_redirect *redir, struct uci_e
 	}
 	else if (redir->ipset.set && state->disable_ipsets)
 	{
-		warn_section("redirect", redir, e, "skipped due to disabled ipset support",
-				redir->name);
+		warn_section("redirect", redir, e, "skipped due to disabled ipset support");
 		return false;
 	}
 	else if (redir->ipset.set &&
 			!(redir->ipset.ptr = fw3_lookup_ipset(state, redir->ipset.name)))
 	{
-		warn_section("redirect", redir, e, "refers to unknown ipset '%s'", redir->name,
+		warn_section("redirect", redir, e, "refers to unknown ipset '%s'",
 				redir->ipset.name);
 		return false;
 	}
