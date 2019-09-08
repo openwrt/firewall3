@@ -145,7 +145,7 @@ fw3_alloc(size_t size)
 	mem = calloc(1, size);
 
 	if (!mem)
-		error("Out of memory while allocating %d bytes", size);
+		error("Out of memory while allocating %zd bytes", size);
 
 	return mem;
 }
