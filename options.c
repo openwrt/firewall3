@@ -568,7 +568,7 @@ fw3_parse_icmptype(void *ptr, const char *val, bool is_list)
 		}
 
 		icmp.type6     = icmp.type;
-		icmp.code6_min = icmp.code_max;
+		icmp.code6_min = icmp.code_min;
 		icmp.code6_max = icmp.code_max;
 
 		v4 = true;
