@@ -257,26 +257,34 @@ static void fw3_ubus_rules_add(struct blob_buf *b, const char *service,
 	void *k = blobmsg_open_table(b, "");
 	struct blob_attr *ropt;
 	unsigned orem;
-	char *type = NULL;
+	char *type = NULL, *name = NULL;
 	char comment[256];
 
 	blobmsg_for_each_attr(ropt, rule, orem) {
 		if (!strcmp(blobmsg_name(ropt), "type"))
 			type = blobmsg_data(ropt);
+		else if (!strcmp(blobmsg_name(ropt), "name"))
+			name = blobmsg_data(ropt);
+
 		if (device && !strcmp(blobmsg_name(ropt), "device"))
 			device = blobmsg_get_string(ropt);
 		else if (strcmp(blobmsg_name(ropt), "name"))
 			blobmsg_add_blob(b, ropt);
 	}
 
-	if (instance)
-		snprintf(comment, sizeof(comment), "ubus:%s[%s] %s %d",
-				service, instance, type ? type : "rule", n);
-	else
-		snprintf(comment, sizeof(comment), "ubus:%s %s %d",
-				service, type ? type : "rule", n);
+	if (!type || strcmp(type, "ipset")) {
+		if (instance)
+			snprintf(comment, sizeof(comment), "ubus:%s[%s] %s %d",
+					service, instance, type ? type : "rule", n);
+		else
+			snprintf(comment, sizeof(comment), "ubus:%s %s %d",
+					service, type ? type : "rule", n);
 
-	blobmsg_add_string(b, "name", comment);
+		blobmsg_add_string(b, "name", comment);
+	}
+	else if (name) {
+		blobmsg_add_string(b, "name", name);
+	}
 
 	if (device)
 		blobmsg_add_string(b, "device", device);
