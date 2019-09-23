@@ -359,6 +359,7 @@ fw3_lock_path(int *fd, const char *path)
 	if (flock(lock_fd, LOCK_EX))
 	{
 		warn("Cannot acquire exclusive lock: %s", strerror(errno));
+		close(lock_fd);
 		return false;
 	}
 
