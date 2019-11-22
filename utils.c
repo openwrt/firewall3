@@ -569,6 +569,22 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 		}
 	}
 
+	if (z->extra_src)
+	{
+		ptr.o      = NULL;
+		ptr.option = "extra_src";
+		ptr.value  = z->extra_src;
+		uci_set(ctx, &ptr);
+	}
+
+	if (z->extra_dest)
+	{
+		ptr.o      = NULL;
+		ptr.option = "extra_dest";
+		ptr.value  = z->extra_dest;
+		uci_set(ctx, &ptr);
+	}
+
 	sprintf(buf, "0x%x", z->flags[0]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v4";
