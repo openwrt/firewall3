@@ -594,7 +594,7 @@ print_interface_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		if (!fw3_is_family(sub, handle->family))
 			continue;
 
-		if (!dev && !sub)
+		if (!dev && !sub && !zone->extra_src && !zone->extra_dest)
 			continue;
 
 		print_interface_rule(handle, state, reload, zone, dev, sub);
