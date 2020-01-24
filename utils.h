@@ -105,6 +105,8 @@ void fw3_pr(const char *fmt, ...)
 
 bool fw3_has_table(bool ipv6, const char *table);
 
+bool fw3_has_target(const bool ipv6, const char *target);
+
 bool fw3_lock(void);
 void fw3_unlock(void);
 bool fw3_lock_path(int *fw3_lock_fd, const char *path);

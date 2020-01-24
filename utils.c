@@ -344,6 +344,33 @@ fw3_has_table(bool ipv6, const char *table)
 	return seen;
 }
 
+bool
+fw3_has_target(const bool ipv6, const char *target)
+{
+	FILE *f;
+
+	char line[12];
+	bool seen = false;
+
+	const char *path = ipv6
+		? "/proc/net/ip6_tables_targets" : "/proc/net/ip_tables_targets";
+
+	if (!(f = fopen(path, "r")))
+		return false;
+
+	while (fgets(line, sizeof(line), f))
+	{
+		if (!strcmp(line, target))
+		{
+			seen = true;
+			break;
+		}
+	}
+
+	fclose(f);
+
+	return seen;
+}
 
 bool
 fw3_lock_path(int *fd, const char *path)

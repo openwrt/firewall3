@@ -85,26 +85,14 @@ check_policy(struct uci_element *e, enum fw3_flag *pol, const char *name)
 }
 
 static void
-check_kmod(struct uci_element *e, bool *module, const char *name)
+check_target(struct uci_element *e, bool *available, const char *target, const bool ipv6)
 {
-	FILE *f;
-	char buf[128];
-
-	if (!*module)
-		return;
-
-	snprintf(buf, sizeof(buf), "/sys/module/%s/refcnt", name);
-
-	f = fopen(buf, "r");
-
-	if (f)
+	const bool b = fw3_has_target(ipv6, target);
+	if (!b)
 	{
-		fclose(f);
-		return;
+		warn_elem(e, "requires unavailable target extension %s, disabling", target);
 	}
-
-	warn_elem(e, "requires not available kernel module %s, disabling", name);
-	*module = false;
+	*available = b;
 }
 
 static void
@@ -171,7 +159,8 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 
 		check_any_reject_code(e, &defs->any_reject_code);
 
-		check_kmod(e, &defs->flow_offloading, "xt_FLOWOFFLOAD");
+		/* exists in both ipv4 and ipv6, if at all, so only check ipv4 */
+		check_target(e, &defs->flow_offloading, "FLOWOFFLOAD", false);
 	}
 }
 
