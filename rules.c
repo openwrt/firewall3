@@ -200,7 +200,7 @@ check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 	if (!r->_src && !r->_dest && !r->src.any && !r->dest.any)
 	{
 		warn_section("rule", r, e, "has neither a source nor a destination zone assigned "
-		                "- assuming an output r");
+		                "- assuming an output rule");
 	}
 
 	if (list_empty(&r->proto))
