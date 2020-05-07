@@ -716,9 +716,8 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		return;
 
 	ext_addrs = fw3_resolve_zone_addresses(redir->_src, &redir->ip_dest);
-
 	if (!ext_addrs)
-		goto out;
+		return;
 
 	list_for_each_entry(ext_addr, ext_addrs, list)
 	{
@@ -741,6 +740,9 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 				continue;
 
 			int_addrs = fw3_resolve_zone_addresses(zone, NULL);
+			if (!int_addrs)
+				continue;
+
 			list_for_each_entry(int_addr, int_addrs, list)
 			{
 				if (!fw3_is_family(int_addr, handle->family))
@@ -763,12 +765,12 @@ expand_redirect(struct fw3_ipt_handle *handle, struct fw3_state *state,
 					                 &ref_addr, int_addr, ext_addr, reflection_zone);
 				}
 			}
+
+			fw3_free_list(int_addrs);
 		}
 	}
 
-out:
 	fw3_free_list(ext_addrs);
-	fw3_free_list(int_addrs);
 }
 
 void
