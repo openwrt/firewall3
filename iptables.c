@@ -141,12 +141,11 @@ void
 get_kernel_version(void)
 {
 	static struct utsname uts;
-	int x = 0, y = 0, z = 0;
+	int x = 3, y = 0, z = 0;
 
-	if (uname(&uts) == -1)
-		sprintf(uts.release, "3.0.0");
+	if (uname(&uts) != -1)
+		sscanf(uts.release, "%d.%d.%d", &x, &y, &z);
 
-	sscanf(uts.release, "%d.%d.%d", &x, &y, &z);
 	kernel_version = 0x10000 * x + 0x100 * y + z;
 }
 
@@ -491,22 +490,15 @@ is_chain(struct fw3_ipt_handle *h, const char *name)
 
 void
 fw3_ipt_create_chain(struct fw3_ipt_handle *h, bool ignore_existing,
-                     const char *fmt, ...)
+                     const char *chain)
 {
-	char buf[32];
-	va_list ap;
-
-	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
-	va_end(ap);
-
-	if (ignore_existing && is_chain(h, buf))
+	if (ignore_existing && is_chain(h, chain))
 		return;
 
 	if (fw3_pr_debug)
-		debug(h, "-N %s\n", buf);
+		debug(h, "-N %s\n", chain);
 
-	iptc_create_chain(buf, h->handle);
+	iptc_create_chain(chain, h->handle);
 }
 
 void
@@ -952,7 +944,7 @@ void
 fw3_ipt_rule_sport_dport(struct fw3_ipt_rule *r,
                          struct fw3_port *sp, struct fw3_port *dp)
 {
-	char buf[sizeof("65535:65535\0")];
+	char buf[sizeof("65535:65535")];
 
 	if ((!sp || !sp->set) && (!dp || !dp->set))
 		return;
@@ -963,7 +955,7 @@ fw3_ipt_rule_sport_dport(struct fw3_ipt_rule *r,
 	if (sp && sp->set)
 	{
 		if (sp->port_min == sp->port_max)
-			sprintf(buf, "%u", sp->port_min);
+			snprintf(buf, sizeof(buf), "%u", sp->port_min);
 		else
 			snprintf(buf, sizeof(buf), "%u:%u", sp->port_min, sp->port_max);
 
@@ -973,7 +965,7 @@ fw3_ipt_rule_sport_dport(struct fw3_ipt_rule *r,
 	if (dp && dp->set)
 	{
 		if (dp->port_min == dp->port_max)
-			sprintf(buf, "%u", dp->port_min);
+			snprintf(buf, sizeof(buf), "%u", dp->port_min);
 		else
 			snprintf(buf, sizeof(buf), "%u:%u", dp->port_min, dp->port_max);
 
@@ -984,9 +976,10 @@ fw3_ipt_rule_sport_dport(struct fw3_ipt_rule *r,
 void
 fw3_ipt_rule_device(struct fw3_ipt_rule *r, const char *device, bool out)
 {
+	struct fw3_device dev = { .any = false };
+
 	if (device) {
-		struct fw3_device dev = { .any = false };
-		strncpy(dev.name, device, sizeof(dev.name) - 1);
+		snprintf(dev.name, sizeof(dev.name), "%s", device);
 		fw3_ipt_rule_in_out(r, (out) ? NULL : &dev, (out) ? &dev : NULL);
 	}
 }
@@ -994,14 +987,14 @@ fw3_ipt_rule_device(struct fw3_ipt_rule *r, const char *device, bool out)
 void
 fw3_ipt_rule_mac(struct fw3_ipt_rule *r, struct fw3_mac *mac)
 {
-	char buf[sizeof("ff:ff:ff:ff:ff:ff\0")];
+	char buf[sizeof("ff:ff:ff:ff:ff:ff")];
 	uint8_t *addr = mac->mac.ether_addr_octet;
 
 	if (!mac)
 		return;
 
-	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
-	        addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+	snprintf(buf, sizeof(buf), "%02x:%02x:%02x:%02x:%02x:%02x",
+	         addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
 	fw3_ipt_rule_addarg(r, false, "-m", "mac");
 	fw3_ipt_rule_addarg(r, mac->invert, "--mac-source", buf);
@@ -1010,7 +1003,7 @@ fw3_ipt_rule_mac(struct fw3_ipt_rule *r, struct fw3_mac *mac)
 void
 fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 {
-	char buf[sizeof("255/255\0")];
+	char buf[sizeof("255/255")];
 
 	if (!icmp)
 		return;
@@ -1019,7 +1012,7 @@ fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 	if (r->h->family == FW3_FAMILY_V6)
 	{
 		if (icmp->code6_min == 0 && icmp->code6_max == 0xFF)
-			sprintf(buf, "%u", icmp->type6);
+			snprintf(buf, sizeof(buf), "%u", icmp->type6);
 		else
 			snprintf(buf, sizeof(buf), "%u/%u", icmp->type6, icmp->code6_min);
 
@@ -1040,19 +1033,19 @@ fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 void
 fw3_ipt_rule_limit(struct fw3_ipt_rule *r, struct fw3_limit *limit)
 {
-	char buf[sizeof("-4294967296/second\0")];
+	char buf[sizeof("-4294967296/second")];
 
 	if (!limit || limit->rate <= 0)
 		return;
 
 	fw3_ipt_rule_addarg(r, false, "-m", "limit");
 
-	sprintf(buf, "%u/%s", limit->rate, fw3_limit_units[limit->unit]);
+	snprintf(buf, sizeof(buf), "%u/%s", limit->rate, fw3_limit_units[limit->unit]);
 	fw3_ipt_rule_addarg(r, limit->invert, "--limit", buf);
 
 	if (limit->burst > 0)
 	{
-		sprintf(buf, "%u", limit->burst);
+		snprintf(buf, sizeof(buf), "%u", limit->burst);
 		fw3_ipt_rule_addarg(r, limit->invert, "--limit-burst", buf);
 	}
 }
@@ -1060,9 +1053,10 @@ fw3_ipt_rule_limit(struct fw3_ipt_rule *r, struct fw3_limit *limit)
 void
 fw3_ipt_rule_ipset(struct fw3_ipt_rule *r, struct fw3_setmatch *match)
 {
-	char buf[sizeof("dst,dst,dst\0")];
+	char buf[sizeof("dst,dst,dst")];
 	char *p = buf;
-	int i = 0;
+	int i = 0, len;
+	size_t rem = sizeof(buf);
 
 	struct fw3_ipset *set;
 	struct fw3_ipset_datatype *type;
@@ -1076,10 +1070,23 @@ fw3_ipt_rule_ipset(struct fw3_ipt_rule *r, struct fw3_setmatch *match)
 		if (i >= 3)
 			break;
 
-		if (p > buf)
-			*p++ = ',';
+		if (p > buf) {
+			if (rem <= 1)
+				break;
 
-		p += sprintf(p, "%s", match->dir[i] ? match->dir[i] : type->dir);
+			*p++ = ',';
+			*p = 0;
+			rem--;
+		}
+
+		len = snprintf(p, rem, "%s", match->dir[i] ? match->dir[i] : type->dir);
+
+		if (len < 0 || len >= rem)
+			break;
+
+		rem -= len;
+		p += len;
+
 		i++;
 	}
 
@@ -1104,14 +1111,16 @@ fw3_ipt_rule_helper(struct fw3_ipt_rule *r, struct fw3_cthelpermatch *match)
 void
 fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 {
-	int i;
+	int i, len;
 	struct tm empty = { 0 };
 
-	char buf[84]; /* sizeof("1,2,3,...,30,31\0") */
+	char buf[84]; /* sizeof("1,2,3,...,30,31") */
 	char *p;
 
 	bool d1 = memcmp(&time->datestart, &empty, sizeof(empty));
 	bool d2 = memcmp(&time->datestop, &empty, sizeof(empty));
+
+	size_t rem;
 
 	if (!d1 && !d2 && !time->timestart && !time->timestop &&
 	    !(time->monthdays & 0xFFFFFFFE) && !(time->weekdays & 0xFE))
@@ -1138,7 +1147,7 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 
 	if (time->timestart)
 	{
-		sprintf(buf, "%02d:%02d:%02d",
+		snprintf(buf, sizeof(buf), "%02d:%02d:%02d",
 		        time->timestart / 3600,
 		        time->timestart % 3600 / 60,
 		        time->timestart % 60);
@@ -1148,7 +1157,7 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 
 	if (time->timestop)
 	{
-		sprintf(buf, "%02d:%02d:%02d",
+		snprintf(buf, sizeof(buf), "%02d:%02d:%02d",
 		        time->timestop / 3600,
 		        time->timestop % 3600 / 60,
 		        time->timestop % 60);
@@ -1158,14 +1167,26 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 
 	if (time->monthdays & 0xFFFFFFFE)
 	{
-		for (i = 1, p = buf; i < 32; i++)
+		for (i = 1, p = buf, rem = sizeof(buf); i < 32; i++)
 		{
 			if (fw3_hasbit(time->monthdays, i))
 			{
-				if (p > buf)
-					*p++ = ',';
+				if (p > buf) {
+					if (rem <= 1)
+						break;
 
-				p += sprintf(p, "%u", i);
+					*p++ = ',';
+					*p = 0;
+					rem--;
+				}
+
+				len = snprintf(p, rem, "%u", i);
+
+				if (len < 0 || len >= rem)
+					break;
+
+				rem -= len;
+				p += len;
 			}
 		}
 
@@ -1174,14 +1195,26 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 
 	if (time->weekdays & 0xFE)
 	{
-		for (i = 1, p = buf; i < 8; i++)
+		for (i = 1, p = buf, rem = sizeof(buf); i < 8; i++)
 		{
 			if (fw3_hasbit(time->weekdays, i))
 			{
-				if (p > buf)
-					*p++ = ',';
+				if (p > buf) {
+					if (rem <= 1)
+						break;
 
-				p += sprintf(p, "%u", i);
+					*p++ = ',';
+					*p = 0;
+					rem--;
+				}
+
+				p += snprintf(p, rem, "%u", i);
+
+				if (len < 0 || len >= rem)
+					break;
+
+				rem -= len;
+				p += len;
 			}
 		}
 
@@ -1192,15 +1225,15 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 void
 fw3_ipt_rule_mark(struct fw3_ipt_rule *r, struct fw3_mark *mark)
 {
-	char buf[sizeof("0xFFFFFFFF/0xFFFFFFFF\0")];
+	char buf[sizeof("0xFFFFFFFF/0xFFFFFFFF")];
 
 	if (!mark || !mark->set)
 		return;
 
 	if (mark->mask < 0xFFFFFFFF)
-		sprintf(buf, "0x%x/0x%x", mark->mark, mark->mask);
+		snprintf(buf, sizeof(buf), "0x%x/0x%x", mark->mark, mark->mask);
 	else
-		sprintf(buf, "0x%x", mark->mark);
+		snprintf(buf, sizeof(buf), "0x%x", mark->mark);
 
 	fw3_ipt_rule_addarg(r, false, "-m", "mark");
 	fw3_ipt_rule_addarg(r, mark->invert, "--mark", buf);
@@ -1209,12 +1242,12 @@ fw3_ipt_rule_mark(struct fw3_ipt_rule *r, struct fw3_mark *mark)
 void
 fw3_ipt_rule_dscp(struct fw3_ipt_rule *r, struct fw3_dscp *dscp)
 {
-	char buf[sizeof("0xFF\0")];
+	char buf[sizeof("0xFF")];
 
 	if (!dscp || !dscp->set)
 		return;
 
-	sprintf(buf, "0x%x", dscp->dscp);
+	snprintf(buf, sizeof(buf), "0x%x", dscp->dscp);
 
 	fw3_ipt_rule_addarg(r, false, "-m", "dscp");
 	fw3_ipt_rule_addarg(r, dscp->invert, "--dscp", buf);
@@ -1230,7 +1263,7 @@ fw3_ipt_rule_comment(struct fw3_ipt_rule *r, const char *fmt, ...)
 		return;
 
 	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
 	fw3_ipt_rule_addarg(r, false, "-m", "comment");
@@ -1323,7 +1356,7 @@ static void
 rule_print4(struct ipt_entry *e)
 {
 	struct in_addr in_zero = { 0 };
-	char buf1[sizeof("255.255.255.255\0")], buf2[sizeof("255.255.255.255\0")];
+	char buf1[sizeof("255.255.255.255")], buf2[sizeof("255.255.255.255")];
 	char *pname;
 
 	if (e->ip.proto)

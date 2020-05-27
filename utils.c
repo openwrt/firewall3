@@ -191,8 +191,7 @@ fw3_find_command(const char *cmd)
 		if ((plen + clen) >= sizeof(path))
 			continue;
 
-		strncpy(path, search, plen);
-		sprintf(path + plen, "/%s", cmd);
+		snprintf(path, sizeof(path), "%.*s/%s", plen, search, cmd);
 
 		if (!stat(path, &s) && S_ISREG(s.st_mode))
 			return path;
@@ -429,7 +428,7 @@ static void
 write_defaults_uci(struct uci_context *ctx, struct fw3_defaults *d,
                    struct uci_package *dest)
 {
-	char buf[sizeof("0xffffffff\0")];
+	char buf[sizeof("0xffffffff")];
 	struct uci_ptr ptr = { .p = dest };
 
 	uci_add_section(ctx, dest, "defaults", &ptr.s);
@@ -449,13 +448,13 @@ write_defaults_uci(struct uci_context *ctx, struct fw3_defaults *d,
 	ptr.value  = fw3_flag_names[d->policy_forward];
 	uci_set(ctx, &ptr);
 
-	sprintf(buf, "0x%x", d->flags[0]);
+	snprintf(buf, sizeof(buf), "0x%x", d->flags[0]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v4";
 	ptr.value  = buf;
 	uci_set(ctx, &ptr);
 
-	sprintf(buf, "0x%x", d->flags[1]);
+	snprintf(buf, sizeof(buf), "0x%x", d->flags[1]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v6";
 	ptr.value  = buf;
@@ -612,13 +611,13 @@ write_zone_uci(struct uci_context *ctx, struct fw3_zone *z,
 		uci_set(ctx, &ptr);
 	}
 
-	sprintf(buf, "0x%x", z->flags[0]);
+	snprintf(buf, sizeof(buf), "0x%x", z->flags[0]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v4";
 	ptr.value  = buf;
 	uci_set(ctx, &ptr);
 
-	sprintf(buf, "0x%x", z->flags[1]);
+	snprintf(buf, sizeof(buf), "0x%x", z->flags[1]);
 	ptr.o      = NULL;
 	ptr.option = "__flags_v6";
 	ptr.value  = buf;
@@ -631,7 +630,7 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 {
 	struct fw3_ipset_datatype *type;
 
-	char buf[sizeof("65535-65535\0")];
+	char buf[sizeof("65535-65535")];
 
 	struct uci_ptr ptr = { .p = dest };
 
@@ -660,7 +659,7 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 
 	list_for_each_entry(type, &s->datatypes, list)
 	{
-		sprintf(buf, "%s_%s", type->dir, fw3_ipset_type_names[type->type]);
+		snprintf(buf, sizeof(buf), "%s_%s", type->dir, fw3_ipset_type_names[type->type]);
 		ptr.o      = NULL;
 		ptr.option = "match";
 		ptr.value  = buf;
@@ -677,7 +676,7 @@ write_ipset_uci(struct uci_context *ctx, struct fw3_ipset *s,
 
 	if (s->portrange.set)
 	{
-		sprintf(buf, "%u-%u", s->portrange.port_min, s->portrange.port_max);
+		snprintf(buf, sizeof(buf), "%u-%u", s->portrange.port_min, s->portrange.port_max);
 		ptr.o      = NULL;
 		ptr.option = "portrange";
 		ptr.value  = buf;
@@ -1021,7 +1020,7 @@ fw3_check_loopback_dev(const char *name)
 		return false;
 
 	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name) - 1);
+	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", name);
 
 	if (ioctl(s, SIOCGIFFLAGS, &ifr) >= 0) {
 		if (ifr.ifr_flags & IFF_LOOPBACK)

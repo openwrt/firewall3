@@ -56,7 +56,7 @@ void fw3_ipt_delete_chain(struct fw3_ipt_handle *h, bool if_unused,
 void fw3_ipt_delete_id_rules(struct fw3_ipt_handle *h, const char *chain);
 
 void fw3_ipt_create_chain(struct fw3_ipt_handle *h, bool ignore_existing,
-                          const char *fmt, ...);
+                          const char *chain);
 
 void fw3_ipt_flush(struct fw3_ipt_handle *h);
 

@@ -25,30 +25,30 @@
 	{ FW3_FAMILY_##f, FW3_TABLE_##tbl, FW3_FLAG_##tgt, fmt }
 
 static const struct fw3_chain_spec zone_chains[] = {
-	C(ANY, FILTER, UNSPEC,        "zone_%s_input"),
-	C(ANY, FILTER, UNSPEC,        "zone_%s_output"),
-	C(ANY, FILTER, UNSPEC,        "zone_%s_forward"),
+	C(ANY, FILTER, UNSPEC,        "zone_?_input"),
+	C(ANY, FILTER, UNSPEC,        "zone_?_output"),
+	C(ANY, FILTER, UNSPEC,        "zone_?_forward"),
 
-	C(ANY, FILTER, SRC_ACCEPT,    "zone_%s_src_ACCEPT"),
-	C(ANY, FILTER, SRC_REJECT,    "zone_%s_src_REJECT"),
-	C(ANY, FILTER, SRC_DROP,      "zone_%s_src_DROP"),
+	C(ANY, FILTER, SRC_ACCEPT,    "zone_?_src_ACCEPT"),
+	C(ANY, FILTER, SRC_REJECT,    "zone_?_src_REJECT"),
+	C(ANY, FILTER, SRC_DROP,      "zone_?_src_DROP"),
 
-	C(ANY, FILTER, ACCEPT,        "zone_%s_dest_ACCEPT"),
-	C(ANY, FILTER, REJECT,        "zone_%s_dest_REJECT"),
-	C(ANY, FILTER, DROP,          "zone_%s_dest_DROP"),
+	C(ANY, FILTER, ACCEPT,        "zone_?_dest_ACCEPT"),
+	C(ANY, FILTER, REJECT,        "zone_?_dest_REJECT"),
+	C(ANY, FILTER, DROP,          "zone_?_dest_DROP"),
 
-	C(V4,  NAT,    SNAT,          "zone_%s_postrouting"),
-	C(V4,  NAT,    DNAT,          "zone_%s_prerouting"),
+	C(V4,  NAT,    SNAT,          "zone_?_postrouting"),
+	C(V4,  NAT,    DNAT,          "zone_?_prerouting"),
 
-	C(ANY, RAW,    HELPER,        "zone_%s_helper"),
-	C(ANY, RAW,    NOTRACK,       "zone_%s_notrack"),
+	C(ANY, RAW,    HELPER,        "zone_?_helper"),
+	C(ANY, RAW,    NOTRACK,       "zone_?_notrack"),
 
-	C(ANY, FILTER, CUSTOM_CHAINS, "input_%s_rule"),
-	C(ANY, FILTER, CUSTOM_CHAINS, "output_%s_rule"),
-	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_%s_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "input_?_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "output_?_rule"),
+	C(ANY, FILTER, CUSTOM_CHAINS, "forwarding_?_rule"),
 
-	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_%s_rule"),
-	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_%s_rule"),
+	C(V4,  NAT,    CUSTOM_CHAINS, "prerouting_?_rule"),
+	C(V4,  NAT,    CUSTOM_CHAINS, "postrouting_?_rule"),
 
 	{ }
 };
@@ -327,6 +327,38 @@ fw3_load_zones(struct fw3_state *state, struct uci_package *p)
 }
 
 
+static char *
+format_chain(const char *fmt, const char *zonename)
+{
+	static char chain[32];
+	size_t rem;
+	char *p;
+	int len;
+
+	for (p = chain, rem = sizeof(chain); *fmt; fmt++) {
+		if (*fmt == '?') {
+			len = snprintf(p, rem, "%s", zonename);
+
+			if (len < 0 || len >= rem)
+				break;
+
+			rem -= len;
+			p += len;
+		}
+		else {
+			if (rem <= 1)
+				break;
+
+			*p++ = *fmt;
+			rem--;
+		}
+	}
+
+	*p = 0;
+
+	return chain;
+}
+
 static void
 print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
                  bool reload, struct fw3_zone *zone)
@@ -366,7 +398,7 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		    !fw3_hasbit(zone->flags[handle->family == FW3_FAMILY_V6], c->flag))
 			continue;
 
-		fw3_ipt_create_chain(handle, reload, c->format, zone->name);
+		fw3_ipt_create_chain(handle, reload, format_chain(c->format, zone->name));
 	}
 
 	if (zone->custom_chains)
@@ -752,7 +784,6 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
 {
 	struct fw3_zone *z, *tmp;
 	const struct fw3_chain_spec *c;
-	char chain[32];
 
 	list_for_each_entry_safe(z, tmp, &state->zones, list)
 	{
@@ -775,8 +806,7 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			if (c->flag && !has(z->flags, handle->family, c->flag))
 				continue;
 
-			snprintf(chain, sizeof(chain), c->format, z->name);
-			fw3_ipt_flush_chain(handle, chain);
+			fw3_ipt_flush_chain(handle, format_chain(c->format, z->name));
 		}
 
 		/* ... then remove the chains */
@@ -791,9 +821,8 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			if (c->flag && !has(z->flags, handle->family, c->flag))
 				continue;
 
-			snprintf(chain, sizeof(chain), c->format, z->name);
-
-			fw3_ipt_delete_chain(handle, reload, chain);
+			fw3_ipt_delete_chain(handle, reload,
+			                     format_chain(c->format, z->name));
 		}
 
 		del(z->flags, handle->family, handle->table);

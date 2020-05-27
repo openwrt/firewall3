@@ -155,7 +155,7 @@ resolve_dest(struct uci_element *e, struct fw3_redirect *redir,
 			if (!compare_addr(addr, &redir->ip_redir))
 				continue;
 
-			strncpy(redir->dest.name, zone->name, sizeof(redir->dest.name) - 1);
+			snprintf(redir->dest.name, sizeof(redir->dest.name), "%s", zone->name);
 			redir->dest.set = true;
 			redir->_dest = zone;
 
@@ -458,14 +458,14 @@ append_chain_nat(struct fw3_ipt_rule *r, struct fw3_redirect *redir)
 static void
 set_redirect(struct fw3_ipt_rule *r, struct fw3_port *port)
 {
-	char buf[sizeof("65535-65535\0")];
+	char buf[sizeof("65535-65535")];
 
 	fw3_ipt_rule_target(r, "REDIRECT");
 
 	if (port && port->set)
 	{
 		if (port->port_min == port->port_max)
-			sprintf(buf, "%u", port->port_min);
+			snprintf(buf, sizeof(buf), "%u", port->port_min);
 		else
 			snprintf(buf, sizeof(buf), "%u-%u", port->port_min, port->port_max);
 
@@ -477,22 +477,30 @@ static void
 set_snat_dnat(struct fw3_ipt_rule *r, enum fw3_flag target,
               struct fw3_address *addr, struct fw3_port *port)
 {
-	char buf[sizeof("255.255.255.255:65535-65535\0")];
-
-	buf[0] = '\0';
+	char buf[sizeof("255.255.255.255:65535-65535")] = {};
+	char ip[INET_ADDRSTRLEN], *p = buf;
+	size_t rem = sizeof(buf);
+	int len;
 
 	if (addr && addr->set)
 	{
-		inet_ntop(AF_INET, &addr->address.v4, buf, sizeof(buf));
+		inet_ntop(AF_INET, &addr->address.v4, ip, sizeof(ip));
+
+		len = snprintf(p, rem, "%s", ip);
+
+		if (len < 0 || len >= rem)
+			return;
+
+		rem -= len;
+		p += len;
 	}
 
 	if (port && port->set)
 	{
 		if (port->port_min == port->port_max)
-			sprintf(buf + strlen(buf), ":%u", port->port_min);
+			snprintf(p, rem, ":%u", port->port_min);
 		else
-			sprintf(buf + strlen(buf), ":%u-%u",
-			        port->port_min, port->port_max);
+			snprintf(p, rem, ":%u-%u", port->port_min, port->port_max);
 	}
 
 	if (target == FW3_FLAG_DNAT)

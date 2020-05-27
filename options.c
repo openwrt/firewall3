@@ -939,7 +939,7 @@ fw3_parse_setmatch(void *ptr, const char *val, bool is_list)
 		return false;
 	}
 
-	strncpy(m->name, p, sizeof(m->name) - 1);
+	snprintf(m->name, sizeof(m->name), "%s", p);
 
 	for (i = 0, p = strtok(NULL, " \t,");
 	     i < 3 && p != NULL;
@@ -987,7 +987,7 @@ fw3_parse_cthelper(void *ptr, const char *val, bool is_list)
 	if (*val)
 	{
 		m.set = true;
-		strncpy(m.name, val, sizeof(m.name) - 1);
+		snprintf(m.name, sizeof(m.name), "%s", val);
 		put_value(ptr, &m, sizeof(m), is_list);
 		return true;
 	}
@@ -1239,35 +1239,46 @@ fw3_address_to_string(struct fw3_address *address, bool allow_invert, bool as_ci
 {
 	char *p, ip[INET6_ADDRSTRLEN];
 	static char buf[INET6_ADDRSTRLEN * 2 + 2];
+	size_t rem = sizeof(buf);
+	int len;
 
 	p = buf;
 
-	if (address->invert && allow_invert)
-		p += sprintf(p, "!");
+	if (address->invert && allow_invert) {
+		*p++ = '!';
+		*p = 0;
+		rem--;
+	}
 
 	inet_ntop(address->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
 	          &address->address.v4, ip, sizeof(ip));
 
-	p += sprintf(p, "%s", ip);
+	len = snprintf(p, rem, "%s", ip);
+
+	if (len < 0 || len >= rem)
+		return buf;
+
+	rem -= len;
+	p += len;
 
 	if (address->range)
 	{
 		inet_ntop(address->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
 		          &address->mask.v4, ip, sizeof(ip));
 
-		p += sprintf(p, "-%s", ip);
+		snprintf(p, rem, "-%s", ip);
 	}
 	else if (!as_cidr)
 	{
 		inet_ntop(address->family == FW3_FAMILY_V4 ? AF_INET : AF_INET6,
 		          &address->mask.v4, ip, sizeof(ip));
 
-		p += sprintf(p, "/%s", ip);
+		snprintf(p, rem, "/%s", ip);
 	}
 	else
 	{
-		p += sprintf(p, "/%u", fw3_netmask2bitlen(address->family,
-		                                          &address->mask.v6));
+		snprintf(p, rem, "/%u",
+		         fw3_netmask2bitlen(address->family, &address->mask.v6));
 	}
 
 	return buf;

@@ -45,10 +45,8 @@ fw3_xt_get_match_name(struct xtables_match *m)
 static inline void
 fw3_xt_set_match_name(struct xtables_match *m)
 {
-    if (m->real_name)
-        strcpy(m->m->u.user.name, m->real_name);
-    else
-        strcpy(m->m->u.user.name, m->name);
+    snprintf(m->m->u.user.name, sizeof(m->m->u.user.name), "%s",
+             m->real_name ? m->real_name : m->name);
 }
 
 static inline bool
@@ -92,10 +90,8 @@ fw3_xt_get_target_name(struct xtables_target *t)
 static inline void
 fw3_xt_set_target_name(struct xtables_target *t, const char *name)
 {
-    if (t->real_name)
-        strcpy(t->t->u.user.name, t->real_name);
-    else
-        strcpy(t->t->u.user.name, name);
+    snprintf(t->t->u.user.name, sizeof(t->t->u.user.name), "%s",
+             t->real_name ? t->real_name : name);
 }
 
 static inline bool

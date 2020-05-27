@@ -265,30 +265,38 @@ static void
 set_target(struct fw3_ipt_rule *r, struct fw3_snat *snat,
            struct fw3_protocol *proto)
 {
-	char buf[sizeof("255.255.255.255:65535-65535\0")];
+	char buf[sizeof("255.255.255.255:65535-65535")] = {};
+	char ip[INET_ADDRSTRLEN], portcntbuf[6], *p = buf;
+	size_t rem = sizeof(buf);
+	int len;
 
 	if (snat->target == FW3_FLAG_SNAT)
 	{
-		buf[0] = '\0';
-
 		if (snat->ip_snat.set)
 		{
-			inet_ntop(AF_INET, &snat->ip_snat.address.v4, buf, sizeof(buf));
+			inet_ntop(AF_INET, &snat->ip_snat.address.v4, ip, sizeof(ip));
+
+			len = snprintf(p, rem, "%s", ip);
+
+			if (len < 0 || len >= rem)
+				return;
+
+			rem -= len;
+			p += len;
 		}
 
 		if (snat->port_snat.set && proto && !proto->any &&
 		    (proto->protocol == 6 || proto->protocol == 17 || proto->protocol == 1))
 		{
 			if (snat->port_snat.port_min == snat->port_snat.port_max)
-				sprintf(buf + strlen(buf), ":%u", snat->port_snat.port_min);
+				snprintf(p, rem, ":%u", snat->port_snat.port_min);
 			else
-				sprintf(buf + strlen(buf), ":%u-%u",
-						snat->port_snat.port_min, snat->port_snat.port_max);
+				snprintf(p, rem, ":%u-%u",
+						 snat->port_snat.port_min, snat->port_snat.port_max);
 
 			if (snat->connlimit_ports) {
-				char portcntbuf[6];
 				snprintf(portcntbuf, sizeof(portcntbuf), "%u",
-						1 + snat->port_snat.port_max - snat->port_snat.port_min);
+				         1 + snat->port_snat.port_max - snat->port_snat.port_min);
 
 				fw3_ipt_rule_addarg(r, false, "-m", "connlimit");
 				fw3_ipt_rule_addarg(r, false, "--connlimit-daddr", NULL);

@@ -182,19 +182,14 @@ fw3_print_includes(struct fw3_state *state, enum fw3_family family, bool reload)
 		fw3_command_close();
 }
 
+#define TEMPLATE "config() { echo \"You cannot use UCI in firewall includes!\" >&2; exit 1; }; . %s"
 
 static void
 run_include(struct fw3_include *include)
 {
 	int rv;
 	struct stat s;
-	const char *tmpl =
-		"config() { "
-			"echo \"You cannot use UCI in firewall includes!\" >&2; "
-			"exit 1; "
-		"}; . %s";
-
-	char buf[PATH_MAX + sizeof(tmpl)];
+	char buf[PATH_MAX + sizeof(TEMPLATE)];
 
 	info(" * Running script '%s'", include->path);
 
@@ -204,7 +199,7 @@ run_include(struct fw3_include *include)
 		return;
 	}
 
-	snprintf(buf, sizeof(buf), tmpl, include->path);
+	snprintf(buf, sizeof(buf), TEMPLATE, include->path);
 	rv = system(buf);
 
 	if (rv)

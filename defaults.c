@@ -218,7 +218,7 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 {
 	int i;
 	struct fw3_defaults *defs = &state->defaults;
-	struct fw3_device lodev = { .set = true };
+	struct fw3_device lodev = { .set = true, .name = "lo" };
 	struct fw3_protocol tcp = { .protocol = 6 };
 	struct fw3_ipt_rule *r;
 
@@ -231,8 +231,6 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 	switch (handle->table)
 	{
 	case FW3_TABLE_FILTER:
-
-		sprintf(lodev.name, "lo");
 
 		r = fw3_ipt_rule_create(handle, NULL, &lodev, NULL, NULL, NULL);
 		fw3_ipt_rule_target(r, "ACCEPT");
@@ -378,7 +376,7 @@ static void
 set_default(const char *name, int set)
 {
 	FILE *f;
-	char path[sizeof("/proc/sys/net/ipv4/tcp_window_scaling\0")];
+	char path[sizeof("/proc/sys/net/ipv4/tcp_window_scaling")];
 
 	snprintf(path, sizeof(path), "/proc/sys/net/ipv4/tcp_%s", name);
 

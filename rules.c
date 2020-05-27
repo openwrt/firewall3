@@ -353,21 +353,21 @@ static void set_target(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 {
 	const char *name;
 	struct fw3_mark *mark;
-	char buf[sizeof("0xFFFFFFFF/0xFFFFFFFF\0")];
+	char buf[sizeof("0xFFFFFFFF/0xFFFFFFFF")];
 
 	switch(rule->target)
 	{
 	case FW3_FLAG_MARK:
 		name = rule->set_mark.set ? "--set-mark" : "--set-xmark";
 		mark = rule->set_mark.set ? &rule->set_mark : &rule->set_xmark;
-		sprintf(buf, "0x%x/0x%x", mark->mark, mark->mask);
+		snprintf(buf, sizeof(buf), "0x%x/0x%x", mark->mark, mark->mask);
 
 		fw3_ipt_rule_target(r, "MARK");
 		fw3_ipt_rule_addarg(r, false, name, buf);
 		return;
 
 	case FW3_FLAG_DSCP:
-		sprintf(buf, "0x%x", rule->set_dscp.dscp);
+		snprintf(buf, sizeof(buf), "0x%x", rule->set_dscp.dscp);
 
 		fw3_ipt_rule_target(r, "DSCP");
 		fw3_ipt_rule_addarg(r, false, "--set-dscp", buf);
