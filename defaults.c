@@ -196,10 +196,6 @@ fw3_print_default_chains(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 	for (c = default_chains; c->format; c++)
 	{
-		/* don't touch user chains on selective stop */
-		if (reload && c->flag == FW3_FLAG_CUSTOM_CHAINS)
-			continue;
-
 		if (!fw3_is_family(c, handle->family))
 			continue;
 
@@ -210,7 +206,7 @@ fw3_print_default_chains(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		    !fw3_hasbit(defs->flags[handle->family == FW3_FAMILY_V6], c->flag))
 			continue;
 
-		fw3_ipt_create_chain(handle, c->format);
+		fw3_ipt_create_chain(handle, reload, c->format);
 	}
 
 	set(defs->flags, handle->family, handle->table);
@@ -430,6 +426,7 @@ fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 	fw3_ipt_delete_id_rules(handle, "PREROUTING");
 	fw3_ipt_delete_id_rules(handle, "POSTROUTING");
 
+	/* first flush all the rules ... */
 	for (c = default_chains; c->format; c++)
 	{
 		/* don't touch user chains on selective stop */
@@ -446,13 +443,21 @@ fw3_flush_rules(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			continue;
 
 		fw3_ipt_flush_chain(handle, c->format);
+	}
 
-		/* keep certain basic chains that do not depend on any settings to
-		   avoid purging unrelated user rules pointing to them */
-		if (reload && !c->flag)
+	/* ... then remove the chains */
+	for (c = default_chains; c->format; c++)
+	{
+		if (!fw3_is_family(c, handle->family))
 			continue;
 
-		fw3_ipt_delete_chain(handle, c->format);
+		if (c->table != handle->table)
+			continue;
+
+		if (c->flag && !has(defs->flags, handle->family, c->flag))
+			continue;
+
+		fw3_ipt_delete_chain(handle, reload, c->format);
 	}
 
 	del(defs->flags, handle->family, handle->table);

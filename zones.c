@@ -356,10 +356,6 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 	for (c = zone_chains; c->format; c++)
 	{
-		/* don't touch user chains on selective stop */
-		if (reload && c->flag == FW3_FLAG_CUSTOM_CHAINS)
-			continue;
-
 		if (!fw3_is_family(c, handle->family))
 			continue;
 
@@ -370,7 +366,7 @@ print_zone_chain(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		    !fw3_hasbit(zone->flags[handle->family == FW3_FAMILY_V6], c->flag))
 			continue;
 
-		fw3_ipt_create_chain(handle, c->format, zone->name);
+		fw3_ipt_create_chain(handle, reload, c->format, zone->name);
 	}
 
 	if (zone->custom_chains)
@@ -763,6 +759,7 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		if (!has(z->flags, handle->family, handle->table))
 			continue;
 
+		/* first flush all rules ... */
 		for (c = zone_chains; c->format; c++)
 		{
 			/* don't touch user chains on selective stop */
@@ -780,13 +777,23 @@ fw3_flush_zones(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 			snprintf(chain, sizeof(chain), c->format, z->name);
 			fw3_ipt_flush_chain(handle, chain);
+		}
 
-			/* keep certain basic chains that do not depend on any settings to
-			   avoid purging unrelated user rules pointing to them */
-			if (reload && !c->flag)
+		/* ... then remove the chains */
+		for (c = zone_chains; c->format; c++)
+		{
+			if (!fw3_is_family(c, handle->family))
 				continue;
 
-			fw3_ipt_delete_chain(handle, chain);
+			if (c->table != handle->table)
+				continue;
+
+			if (c->flag && !has(z->flags, handle->family, c->flag))
+				continue;
+
+			snprintf(chain, sizeof(chain), c->format, z->name);
+
+			fw3_ipt_delete_chain(handle, reload, chain);
 		}
 
 		del(z->flags, handle->family, handle->table);

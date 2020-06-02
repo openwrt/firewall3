@@ -329,9 +329,61 @@ delete_rules(struct fw3_ipt_handle *h, const char *target)
 	}
 }
 
-void
-fw3_ipt_delete_chain(struct fw3_ipt_handle *h, const char *chain)
+static bool
+is_referenced(struct fw3_ipt_handle *h, const char *target)
 {
+	const struct ipt_entry *e;
+	const char *chain;
+	const char *t;
+
+#ifndef DISABLE_IPV6
+	if (h->family == FW3_FAMILY_V6)
+	{
+		for (chain = ip6tc_first_chain(h->handle);
+		     chain != NULL;
+		     chain = ip6tc_next_chain(h->handle))
+		{
+			const struct ip6t_entry *e6;
+			for (e6 = ip6tc_first_rule(chain, h->handle);
+			     e6 != NULL;
+			     e6 = ip6tc_next_rule(e6, h->handle))
+			{
+				t = ip6tc_get_target(e6, h->handle);
+
+				if (*t && !strcmp(t, target))
+					return true;
+			}
+		}
+	}
+	else
+#endif
+	{
+		for (chain = iptc_first_chain(h->handle);
+		     chain != NULL;
+		     chain = iptc_next_chain(h->handle))
+		{
+			for (e = iptc_first_rule(chain, h->handle);
+			     e != NULL;
+			     e = iptc_next_rule(e, h->handle))
+			{
+				t = iptc_get_target(e, h->handle);
+
+				if (*t && !strcmp(t, target))
+					return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void
+fw3_ipt_delete_chain(struct fw3_ipt_handle *h, bool if_unused,
+                     const char *chain)
+{
+	if (if_unused && is_referenced(h, chain))
+		return;
+
 	delete_rules(h, chain);
 
 	if (fw3_pr_debug)
@@ -425,8 +477,21 @@ fw3_ipt_delete_id_rules(struct fw3_ipt_handle *h, const char *chain)
 	}
 }
 
+
+static bool
+is_chain(struct fw3_ipt_handle *h, const char *name)
+{
+#ifndef DISABLE_IPV6
+	if (h->family == FW3_FAMILY_V6)
+		return ip6tc_is_chain(name, h->handle);
+	else
+#endif
+		return iptc_is_chain(name, h->handle);
+}
+
 void
-fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...)
+fw3_ipt_create_chain(struct fw3_ipt_handle *h, bool ignore_existing,
+                     const char *fmt, ...)
 {
 	char buf[32];
 	va_list ap;
@@ -434,6 +499,9 @@ fw3_ipt_create_chain(struct fw3_ipt_handle *h, const char *fmt, ...)
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
 	va_end(ap);
+
+	if (ignore_existing && is_chain(h, buf))
+		return;
 
 	if (fw3_pr_debug)
 		debug(h, "-N %s\n", buf);
@@ -514,7 +582,7 @@ fw3_ipt_gc(struct fw3_ipt_handle *h)
 				if (!chain_is_empty(h, chain))
 					continue;
 
-				fw3_ipt_delete_chain(h, chain);
+				fw3_ipt_delete_chain(h, false, chain);
 				found = true;
 				break;
 			}
@@ -537,7 +605,7 @@ fw3_ipt_gc(struct fw3_ipt_handle *h)
 
 				warn("D=%s\n", chain);
 
-				fw3_ipt_delete_chain(h, chain);
+				fw3_ipt_delete_chain(h, false, chain);
 				found = true;
 				break;
 			}
@@ -587,17 +655,6 @@ fw3_ipt_rule_new(struct fw3_ipt_handle *h)
 	return r;
 }
 
-
-static bool
-is_chain(struct fw3_ipt_handle *h, const char *name)
-{
-#ifndef DISABLE_IPV6
-	if (h->family == FW3_FAMILY_V6)
-		return ip6tc_is_chain(name, h->handle);
-	else
-#endif
-		return iptc_is_chain(name, h->handle);
-}
 
 static char *
 get_protoname(struct fw3_ipt_rule *r)
