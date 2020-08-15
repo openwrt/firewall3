@@ -1170,6 +1170,9 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 						if (blobmsg_type(e) == BLOBMSG_TYPE_INT32) {
 							snprintf(buf, sizeof(buf), "%d", blobmsg_get_u32(e));
 							v = buf;
+						} else if (blobmsg_type(o) == BLOBMSG_TYPE_BOOL) {
+							snprintf(buf, sizeof(buf), "%d", blobmsg_get_bool(o));
+							v = buf;
 						} else {
 							v = blobmsg_get_string(e);
 						}
@@ -1188,6 +1191,9 @@ fw3_parse_blob_options(void *s, const struct fw3_option *opts,
 			{
 				if (blobmsg_type(o) == BLOBMSG_TYPE_INT32) {
 					snprintf(buf, sizeof(buf), "%d", blobmsg_get_u32(o));
+					v = buf;
+				} else if (blobmsg_type(o) == BLOBMSG_TYPE_BOOL) {
+					snprintf(buf, sizeof(buf), "%d", blobmsg_get_bool(o));
 					v = buf;
 				} else {
 					v = blobmsg_get_string(o);
