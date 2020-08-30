@@ -22,8 +22,12 @@
 #include "options.h"
 #include "iptables.h"
 
-/* 32 - sizeof("postrouting_") - sizeof("_rule") - sizeof("\0") */
-#define FW3_ZONE_MAXNAMELEN 14
+/* XT_EXTENSION_MAXNAMELEN (29)
+ *  - sizeof("postrouting_")
+ *  - sizeof("_rule")
+ *  - sizeof("\0")
+ */
+#define FW3_ZONE_MAXNAMELEN 11
 
 extern const struct fw3_option fw3_zone_opts[];
 
