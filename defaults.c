@@ -91,8 +91,8 @@ check_target(struct uci_element *e, bool *available, const char *target, const b
 	if (!b)
 	{
 		warn_elem(e, "requires unavailable target extension %s, disabling", target);
+		*available = false;
 	}
-	*available = b;
 }
 
 static void
@@ -126,7 +126,6 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 	struct uci_element *e;
 	struct fw3_defaults *defs = &state->defaults;
 
-	bool flow_offload_avaliable = false;
 	bool seen = false;
 
 	defs->tcp_reject_code      = FW3_REJECT_CODE_TCP_RESET;
@@ -163,10 +162,7 @@ fw3_load_defaults(struct fw3_state *state, struct uci_package *p)
 		check_any_reject_code(e, &defs->any_reject_code);
 
 		/* exists in both ipv4 and ipv6, if at all, so only check ipv4 */
-		check_target(e, &flow_offload_avaliable, "FLOWOFFLOAD", false);
-
-		if (!flow_offload_avaliable)
-			defs->flow_offloading = false;
+		check_target(e, &defs->flow_offloading, "FLOWOFFLOAD", false);
 	}
 }
 
