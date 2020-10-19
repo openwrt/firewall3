@@ -315,23 +315,19 @@ fw3_command_close(void)
 	pipe_pid = -1;
 }
 
-bool
-fw3_has_table(bool ipv6, const char *table)
+static bool
+file_contains(const char *path, const char *str)
 {
 	FILE *f;
-
 	char line[12];
 	bool seen = false;
-
-	const char *path = ipv6
-		? "/proc/net/ip6_tables_names" : "/proc/net/ip_tables_names";
 
 	if (!(f = fopen(path, "r")))
 		return false;
 
 	while (fgets(line, sizeof(line), f))
 	{
-		if (!strncmp(line, table, strlen(table)))
+		if (!strncmp(line, str, strlen(str)))
 		{
 			seen = true;
 			break;
@@ -344,31 +340,21 @@ fw3_has_table(bool ipv6, const char *table)
 }
 
 bool
+fw3_has_table(const bool ipv6, const char *table)
+{
+	const char *path = ipv6
+		? "/proc/net/ip6_tables_names" : "/proc/net/ip_tables_names";
+
+	return file_contains(path, table);
+}
+
+bool
 fw3_has_target(const bool ipv6, const char *target)
 {
-	FILE *f;
-
-	char line[12];
-	bool seen = false;
-
 	const char *path = ipv6
 		? "/proc/net/ip6_tables_targets" : "/proc/net/ip_tables_targets";
 
-	if (!(f = fopen(path, "r")))
-		return false;
-
-	while (fgets(line, sizeof(line), f))
-	{
-		if (!strcmp(line, target))
-		{
-			seen = true;
-			break;
-		}
-	}
-
-	fclose(f);
-
-	return seen;
+	return file_contains(path, target);
 }
 
 bool

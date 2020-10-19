@@ -55,7 +55,6 @@ void error(const char *format, ...)
 void info(const char *format, ...)
 	__attribute__ ((format (printf, 1, 2)));
 
-
 #define warn_section(t, r, e, fmt, ...)					\
 	do {									\
 		if (e)								\
@@ -103,7 +102,7 @@ void fw3_command_close(void);
 void fw3_pr(const char *fmt, ...)
 	__attribute__ ((format (printf, 1, 2)));
 
-bool fw3_has_table(bool ipv6, const char *table);
+bool fw3_has_table(const bool ipv6, const char *table);
 
 bool fw3_has_target(const bool ipv6, const char *target);
 
