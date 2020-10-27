@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <ctype.h>
+
 #include "ipsets.h"
 
 
@@ -337,6 +339,7 @@ load_file(struct fw3_ipset *ipset)
 {
 	FILE *f;
 	char line[128];
+	char *p;
 
 	if (!ipset->loadfile)
 		return;
@@ -350,8 +353,13 @@ load_file(struct fw3_ipset *ipset)
 		return;
 	}
 
-	while (fgets(line, sizeof(line), f))
-		fw3_pr("add %s %s", ipset->name, line);
+	while (fgets(line, sizeof(line), f)) {
+		p = line;
+		while (isspace(*p))
+			p++;
+		if (*p && *p != '#')
+			fw3_pr("add %s %s", ipset->name, line);
+	}
 
 	fclose(f);
 }
