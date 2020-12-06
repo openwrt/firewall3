@@ -1208,7 +1208,7 @@ fw3_ipt_rule_time(struct fw3_ipt_rule *r, struct fw3_time *time)
 					rem--;
 				}
 
-				p += snprintf(p, rem, "%u", i);
+				len = snprintf(p, rem, "%u", i);
 
 				if (len < 0 || len >= rem)
 					break;
