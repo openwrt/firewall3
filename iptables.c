@@ -1022,7 +1022,7 @@ fw3_ipt_rule_icmptype(struct fw3_ipt_rule *r, struct fw3_icmptype *icmp)
 #endif
 	{
 		if (icmp->code_min == 0 && icmp->code_max == 0xFF)
-			sprintf(buf, "%u", icmp->type);
+			snprintf(buf, sizeof(buf), "%u", icmp->type);
 		else
 			snprintf(buf, sizeof(buf), "%u/%u", icmp->type, icmp->code_min);
 
