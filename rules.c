@@ -170,13 +170,6 @@ check_rule(struct fw3_state *state, struct fw3_rule *r, struct uci_element *e)
 		return false;
 	}
 
-	if (r->_dest && (r->target == FW3_FLAG_MARK || r->target == FW3_FLAG_DSCP))
-	{
-		warn_section("rule", r, e, "must not specify 'dest' for %s target",
-		             fw3_flag_names[r->target]);
-		return false;
-	}
-
 	if (r->set_mark.invert || r->set_xmark.invert || r->set_dscp.invert)
 	{
 		warn_section("rule", r, e, "must not have inverted 'set_mark', "
@@ -309,10 +302,19 @@ append_chain(struct fw3_ipt_rule *r, struct fw3_rule *rule)
 	{
 		snprintf(chain, sizeof(chain), "zone_%s_helper", rule->src.name);
 	}
-	else if ((rule->target == FW3_FLAG_MARK || rule->target == FW3_FLAG_DSCP) &&
-	         (rule->_src || rule->src.any))
+	else if (rule->target == FW3_FLAG_MARK || rule->target == FW3_FLAG_DSCP)
 	{
-		snprintf(chain, sizeof(chain), "PREROUTING");
+		if ((rule->_dest && rule->_src) ||
+		    (rule->dest.any && rule->src.any))
+			snprintf(chain, sizeof(chain), "FORWARD");
+		else if (rule->src.any && rule->_dest)
+			snprintf(chain, sizeof(chain), "POSTROUTING");
+		else if (rule->dest.any && rule->_src)
+			snprintf(chain, sizeof(chain), "PREROUTING");
+		else if (!rule->dest.set && rule->src.set)
+			snprintf(chain, sizeof(chain), "INPUT");
+		else /* if (!rule->src.set) */
+			snprintf(chain, sizeof(chain), "OUTPUT");
 	}
 	else
 	{
@@ -420,6 +422,10 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
            struct fw3_mac *mac, struct fw3_icmptype *icmptype)
 {
 	struct fw3_ipt_rule *r;
+	struct fw3_device *idev, *odev;
+	struct list_head empty, *idevices, *odevices;
+	INIT_LIST_HEAD(&empty);
+	idevices = odevices = &empty;
 
 	if (!fw3_is_family(sip, handle->family) ||
 	    !fw3_is_family(dip, handle->family))
@@ -471,21 +477,33 @@ print_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 		return;
 	}
 
-	r = fw3_ipt_rule_create(handle, proto, NULL, NULL, sip, dip);
-	fw3_ipt_rule_sport_dport(r, sport, dport);
-	fw3_ipt_rule_device(r, rule->device, rule->direction_out);
-	fw3_ipt_rule_icmptype(r, icmptype);
-	fw3_ipt_rule_mac(r, mac);
-	fw3_ipt_rule_ipset(r, &rule->ipset);
-	fw3_ipt_rule_helper(r, &rule->helper);
-	fw3_ipt_rule_limit(r, &rule->limit);
-	fw3_ipt_rule_time(r, &rule->time);
-	fw3_ipt_rule_mark(r, &rule->mark);
-	fw3_ipt_rule_dscp(r, &rule->dscp);
-	set_target(r, rule);
-	fw3_ipt_rule_extra(r, rule->extra);
-	set_comment(r, rule->name, num);
-	append_chain(r, rule);
+	if (rule->target == FW3_FLAG_DSCP || rule->target == FW3_FLAG_MARK)
+	{
+		if (rule->_src)
+			idevices = &rule->_src->devices;
+		if (rule->_dest)
+			odevices = &rule->_dest->devices;
+	}
+
+	fw3_foreach(idev, idevices)
+	fw3_foreach(odev, odevices)
+	{
+		r = fw3_ipt_rule_create(handle, proto, idev, odev, sip, dip);
+		fw3_ipt_rule_sport_dport(r, sport, dport);
+		fw3_ipt_rule_device(r, rule->device, rule->direction_out);
+		fw3_ipt_rule_icmptype(r, icmptype);
+		fw3_ipt_rule_mac(r, mac);
+		fw3_ipt_rule_ipset(r, &rule->ipset);
+		fw3_ipt_rule_helper(r, &rule->helper);
+		fw3_ipt_rule_limit(r, &rule->limit);
+		fw3_ipt_rule_time(r, &rule->time);
+		fw3_ipt_rule_mark(r, &rule->mark);
+		fw3_ipt_rule_dscp(r, &rule->dscp);
+		set_target(r, rule);
+		fw3_ipt_rule_extra(r, rule->extra);
+		set_comment(r, rule->name, num);
+		append_chain(r, rule);
+	}
 }
 
 static void
