@@ -137,7 +137,7 @@ check_masq_addrs(struct list_head *head)
 static void
 resolve_networks(struct uci_element *e, struct fw3_zone *zone)
 {
-	struct fw3_device *net, *tmp;
+	struct fw3_device *net, *dev, *tmp;
 
 	list_for_each_entry(net, &zone->networks, list)
 	{
@@ -149,8 +149,15 @@ resolve_networks(struct uci_element *e, struct fw3_zone *zone)
 			continue;
 		}
 
+		list_for_each_entry(dev, &zone->devices, list)
+			if (!strcmp(dev->name, tmp->name))
+				goto alias;
+
 		snprintf(tmp->network, sizeof(tmp->network), "%s", net->name);
 		list_add_tail(&tmp->list, &zone->devices);
+		continue;
+alias:
+		free(tmp);
 	}
 }
 
