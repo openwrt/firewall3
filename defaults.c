@@ -278,8 +278,7 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 
 		if (defs->syn_flood)
 		{
-			r = fw3_ipt_rule_create(handle, &tcp, NULL, NULL, NULL, NULL);
-			fw3_ipt_rule_extra(r, "--syn");
+			r = fw3_ipt_rule_create(handle, NULL, NULL, NULL, NULL, NULL);
 			fw3_ipt_rule_limit(r, &defs->syn_flood_rate);
 			fw3_ipt_rule_target(r, "RETURN");
 			fw3_ipt_rule_append(r, "syn_flood");
