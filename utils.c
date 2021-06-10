@@ -340,15 +340,6 @@ file_contains(const char *path, const char *str)
 }
 
 bool
-fw3_has_table(const bool ipv6, const char *table)
-{
-	const char *path = ipv6
-		? "/proc/net/ip6_tables_names" : "/proc/net/ip_tables_names";
-
-	return file_contains(path, table);
-}
-
-bool
 fw3_has_target(const bool ipv6, const char *target)
 {
 	const char *path = ipv6

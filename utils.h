@@ -102,8 +102,6 @@ void fw3_command_close(void);
 void fw3_pr(const char *fmt, ...)
 	__attribute__ ((format (printf, 1, 2)));
 
-bool fw3_has_table(const bool ipv6, const char *table);
-
 bool fw3_has_target(const bool ipv6, const char *target);
 
 bool fw3_lock(void);

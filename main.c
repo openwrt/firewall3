@@ -195,9 +195,6 @@ stop(bool complete)
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
-			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
-				continue;
-
 			if (!(handle = fw3_ipt_open(family, table)))
 				continue;
 
@@ -279,9 +276,6 @@ start(void)
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
-			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
-				continue;
-
 			if (!(handle = fw3_ipt_open(family, table)))
 				continue;
 
@@ -350,9 +344,6 @@ reload(void)
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
-			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
-				continue;
-
 			if (!(handle = fw3_ipt_open(family, table)))
 				continue;
 
@@ -379,9 +370,6 @@ start:
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
-			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
-				continue;
-
 			if (!(handle = fw3_ipt_open(family, table)))
 				continue;
 
@@ -437,9 +425,6 @@ gc(void)
 
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
-			if (!fw3_has_table(family == FW3_FAMILY_V6, fw3_flag_names[table]))
-				continue;
-
 			if (!(handle = fw3_ipt_open(family, table)))
 				continue;
 
