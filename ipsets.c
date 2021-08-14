@@ -266,6 +266,7 @@ fw3_alloc_ipset(struct fw3_state *state)
 	ipset->enabled    = true;
 	ipset->family     = FW3_FAMILY_V4;
 	ipset->reload_set = false;
+	ipset->timeout    = -1; /* no timeout by default */
 
 	list_add_tail(&ipset->list, &state->ipsets);
 
@@ -395,7 +396,7 @@ create_ipset(struct fw3_ipset *ipset, struct fw3_state *state)
 		       ipset->portrange.port_min, ipset->portrange.port_max);
 	}
 
-	if (ipset->timeout > 0)
+	if (ipset->timeout >= 0)
 		fw3_pr(" timeout %u", ipset->timeout);
 
 	if (ipset->maxelem > 0)
