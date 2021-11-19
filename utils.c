@@ -397,7 +397,6 @@ fw3_unlock_path(int *fd, const char *lockpath)
 		warn("Cannot release exclusive lock: %s", strerror(errno));
 
 	close(*fd);
-	unlink(FW3_LOCKFILE);
 
 	*fd = -1;
 }
