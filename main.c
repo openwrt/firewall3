@@ -263,17 +263,6 @@ start(void)
 			continue;
 		}
 
-		/* Linux 5.15+: make sure the tables are loaded and
-		 * /proc/net/ip{,6}_tables_names are thus populated.
-		 */
-		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
-		{
-			if (!(handle = fw3_ipt_open(family, table)))
-				continue;
-
-			fw3_ipt_close(handle);
-		}
-
 		for (table = FW3_TABLE_FILTER; table <= FW3_TABLE_RAW; table++)
 		{
 			if (!(handle = fw3_ipt_open(family, table)))
