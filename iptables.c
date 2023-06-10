@@ -718,7 +718,9 @@ need_protomatch(struct fw3_ipt_rule *r, const char *pname)
 	if (!match)
 		return true;
 
-	free(match);
+	/* Free any kind of clone from xtables_find_match */
+	if (match == match->next)
+		free(match);
 	return !r->protocol_loaded;
 }
 
