@@ -33,20 +33,6 @@ const struct fw3_option fw3_cthelper_opts[] = {
 
 
 static bool
-test_module(struct fw3_cthelper *helper)
-{
-	struct stat s;
-	char path[sizeof("/sys/module/nf_conntrack_xxxxxxxxxxxxxxxx")];
-
-	snprintf(path, sizeof(path), "/sys/module/%s", helper->module);
-
-	if (stat(path, &s) || !S_ISDIR(s.st_mode))
-		return false;
-
-	return true;
-}
-
-static bool
 check_cthelper_proto(const struct fw3_cthelper *helper)
 {
 	struct fw3_protocol	*proto;
@@ -288,9 +274,6 @@ fw3_print_cthelpers(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			if (!fw3_is_family(helper, handle->family))
 				continue;
 
-			if (!test_module(helper))
-				continue;
-
 			expand_helper_rule(handle, helper, zone);
 		}
 	}
@@ -305,13 +288,6 @@ fw3_print_cthelpers(struct fw3_ipt_handle *handle, struct fw3_state *state,
 
 			if (!fw3_is_family(helper, handle->family))
 				continue;
-
-			if (!test_module(helper))
-			{
-				info("     ! Conntrack module '%s' for helper '%s' is not loaded",
-				     helper->module, helper->name);
-				continue;
-			}
 
 			expand_helper_rule(handle, helper, zone);
 		}
