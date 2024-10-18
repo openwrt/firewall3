@@ -251,7 +251,10 @@ fw3_print_default_head_rules(struct fw3_ipt_handle *handle,
 
 		if (defs->flow_offloading)
 		{
+			struct fw3_protocol any = {};
+
 			r = fw3_ipt_rule_new(handle);
+			fw3_ipt_rule_proto(r, &any);
 			fw3_ipt_rule_comment(r, "Traffic offloading");
 			fw3_ipt_rule_extra(r, "-m conntrack --ctstate RELATED,ESTABLISHED");
 			fw3_ipt_rule_target(r, "FLOWOFFLOAD");
