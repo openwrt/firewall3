@@ -586,7 +586,7 @@ print_interface_rule(struct fw3_ipt_handle *handle, struct fw3_state *state,
 			fw3_ipt_rule_comment(r, "Zone %s MTU fixing", zone->name);
 			fw3_ipt_rule_target(r, "TCPMSS");
 			fw3_ipt_rule_addarg(r, false, "--clamp-mss-to-pmtu", NULL);
-			fw3_ipt_rule_replace(r, "FORWARD");
+			fw3_ipt_rule_replace(r, "POSTROUTING");
 
 			r = fw3_ipt_rule_create(handle, &tcp, dev, NULL, sub, NULL);
 			fw3_ipt_rule_addarg(r, false, "--tcp-flags", "SYN,RST");
