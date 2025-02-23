@@ -70,13 +70,13 @@ fw3_xt_merge_match_options(struct xtables_globals *g, struct xtables_match *m)
 {
 	if (m->x6_options)
 		g->opts = xtables_options_xfrm(g->orig_opts, g->opts,
-									   m->x6_options, &m->option_offset);
-
-	if (m->extra_opts)
+						m->x6_options, &m->option_offset);
+	else if (m->extra_opts)
 		g->opts = xtables_merge_options(g->orig_opts, g->opts,
-										m->extra_opts, &m->option_offset);
+						m->extra_opts, &m->option_offset);
+	else
+		return;
 }
-
 
 static inline const char *
 fw3_xt_get_target_name(struct xtables_target *t)
@@ -115,10 +115,12 @@ fw3_xt_merge_target_options(struct xtables_globals *g, struct xtables_target *t)
 {
 	if (t->x6_options)
 		g->opts = xtables_options_xfrm(g->orig_opts, g->opts,
-		                               t->x6_options, &t->option_offset);
-	else
+						t->x6_options, &t->option_offset);
+	else if (t->extra_opts)
 		g->opts = xtables_merge_options(g->orig_opts, g->opts,
-		                                t->extra_opts, &t->option_offset);
+						t->extra_opts, &t->option_offset);
+	else
+		return;
 }
 
 static inline void

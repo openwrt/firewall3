@@ -1694,7 +1694,7 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 	va_end(ap);
 
 	g = (r->h->family == FW3_FAMILY_V6) ? &xtg6 : &xtg;
-	g->opts = g->orig_opts;
+	//g->opts = g->orig_opts;
 
 	optind = 0;
 	opterr = 0;
@@ -1709,8 +1709,8 @@ __fw3_ipt_rule_append(struct fw3_ipt_rule *r, bool repl, const char *fmt, ...)
 
 	set_rule_tag(r);
 
-	while ((optc = getopt_long(r->argc, r->argv, "-:m:j:i:o:s:d:", g->opts,
-	                           NULL)) != -1)
+	while ((optc = getopt_long(r->argc, r->argv, "-:m:j:i:o:s:d:",
+				   g->opts ?: g->orig_opts, NULL)) != -1)
 	{
 		switch (optc)
 		{
