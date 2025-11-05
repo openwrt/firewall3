@@ -271,6 +271,10 @@ __fw3_command_pipe(bool silent, const char *command, ...)
 
 		execv(command, args);
 
+		/* Only reach on execv failure - must exit to prevent child continuing */
+		warn("Unable to execute %s: %s", command, strerror(errno));
+		_exit(1);
+
 	default:
 		signal(SIGPIPE, SIG_IGN);
 		pipe_pid = pid;
@@ -771,7 +775,7 @@ fw3_hotplug(bool add, void *zone, void *device)
 	switch (fork())
 	{
 	case -1:
-		warn("Unable to fork(): %s\n", strerror(errno));
+		warn("Unable to fork(): %s", strerror(errno));
 		return false;
 
 	case 0:
@@ -794,8 +798,8 @@ fw3_hotplug(bool add, void *zone, void *device)
 
 	execl(FW3_HOTPLUG, FW3_HOTPLUG, "firewall", NULL);
 
-	/* unreached */
-	return false;
+	/* Only reach on execl() failure - must exit to prevent child continuing */
+	_exit(1);
 }
 
 int
