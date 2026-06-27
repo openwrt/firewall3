@@ -131,4 +131,16 @@ const char * fw3_protoname(void *proto);
 bool fw3_check_loopback_dev(const char *name);
 
 bool fw3_check_loopback_addr(struct fw3_address *addr);
+
+static inline long strtol_safe(const char *nptr, char **endptr, int base)
+{
+	errno = 0;
+	return strtol(nptr, endptr, base);
+}
+
+static inline unsigned long strtoul_safe(const char *nptr, char **endptr, int base)
+{
+	errno = 0;
+	return strtoul(nptr, endptr, base);
+}
 #endif

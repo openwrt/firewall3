@@ -178,7 +178,7 @@ bool
 fw3_parse_int(void *ptr, const char *val, bool is_list)
 {
 	char *e;
-	int n = strtol(val, &e, 0);
+	int n = strtol_safe(val, &e, 0);
 
 	if (e == val || *e)
 		return false;
@@ -223,7 +223,7 @@ fw3_parse_limit(void *ptr, const char *val, bool is_list)
 		while (isspace(*++val));
 	}
 
-	n = strtol(val, &e, 10);
+	n = strtol_safe(val, &e, 10);
 
 	if (errno == ERANGE || errno == EINVAL)
 		return false;
@@ -313,7 +313,7 @@ fw3_parse_address(void *ptr, const char *val, bool is_list)
 		{
 			if (!inet_pton(AF_INET6, m, &v6))
 			{
-				bits = strtol(m, &e, 10);
+				bits = strtol_safe(m, &e, 10);
 
 				if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v6))
 					goto fail;
@@ -342,7 +342,7 @@ fw3_parse_address(void *ptr, const char *val, bool is_list)
 		{
 			if (!inet_pton(AF_INET, m, &v4))
 			{
-				bits = strtol(m, &e, 10);
+				bits = strtol_safe(m, &e, 10);
 
 				if ((*e != 0) || !fw3_bitlen2netmask(addr.family, bits, &v4))
 					goto fail;
@@ -463,7 +463,7 @@ fw3_parse_port(void *ptr, const char *val, bool is_list)
 		while (isspace(*++val));
 	}
 
-	n = strtoul(val, &p, 10);
+	n = strtoul_safe(val, &p, 10);
 
 	if (errno == ERANGE || errno == EINVAL)
 		return false;
@@ -473,7 +473,7 @@ fw3_parse_port(void *ptr, const char *val, bool is_list)
 
 	if (*p)
 	{
-		m = strtoul(++p, NULL, 10);
+		m = strtoul_safe(++p, NULL, 10);
 
 		if (errno == ERANGE || errno == EINVAL || m < n)
 			return false;
@@ -544,7 +544,7 @@ fw3_parse_icmptype(void *ptr, const char *val, bool is_list)
 
 	if (!v4 && !v6)
 	{
-		i = strtoul(val, &p, 10);
+		i = strtoul_safe(val, &p, 10);
 
 		if ((p == val) || (*p != '/' && *p != 0) || (i > 0xFF))
 			return false;
@@ -554,7 +554,7 @@ fw3_parse_icmptype(void *ptr, const char *val, bool is_list)
 		if (*p == '/')
 		{
 			val = ++p;
-			i = strtoul(val, &p, 10);
+			i = strtoul_safe(val, &p, 10);
 
 			if ((p == val) || (*p != 0) || (i > 0xFF))
 				return false;
@@ -627,7 +627,7 @@ fw3_parse_protocol(void *ptr, const char *val, bool is_list)
 		return true;
 	}
 
-	proto.protocol = strtoul(val, &e, 10);
+	proto.protocol = strtoul_safe(val, &e, 10);
 
 	if ((e == val) || (*e != 0))
 		return false;
@@ -684,37 +684,37 @@ fw3_parse_date(void *ptr, const char *val, bool is_list)
 	time_t ts;
 	char *p;
 
-	year = strtoul(val, &p, 10);
+	year = strtoul_safe(val, &p, 10);
 	if ((*p != '-' && *p) || year < 1970 || year > 2038)
 		goto fail;
 	else if (!*p)
 		goto ret;
 
-	mon = strtoul(++p, &p, 10);
+	mon = strtoul_safe(++p, &p, 10);
 	if ((*p != '-' && *p) || mon > 12)
 		goto fail;
 	else if (!*p)
 		goto ret;
 
-	day = strtoul(++p, &p, 10);
+	day = strtoul_safe(++p, &p, 10);
 	if ((*p != 'T' && *p) || day > 31)
 		goto fail;
 	else if (!*p)
 		goto ret;
 
-	hour = strtoul(++p, &p, 10);
+	hour = strtoul_safe(++p, &p, 10);
 	if ((*p != ':' && *p) || hour > 23)
 		goto fail;
 	else if (!*p)
 		goto ret;
 
-	min = strtoul(++p, &p, 10);
+	min = strtoul_safe(++p, &p, 10);
 	if ((*p != ':' && *p) || min > 59)
 		goto fail;
 	else if (!*p)
 		goto ret;
 
-	sec = strtoul(++p, &p, 10);
+	sec = strtoul_safe(++p, &p, 10);
 	if (*p || sec > 59)
 		goto fail;
 
@@ -744,17 +744,17 @@ fw3_parse_time(void *ptr, const char *val, bool is_list)
 	unsigned int hour = 0, min = 0, sec = 0;
 	char *p;
 
-	hour = strtoul(val, &p, 10);
+	hour = strtoul_safe(val, &p, 10);
 	if (*p != ':' || hour > 23)
 		goto fail;
 
-	min = strtoul(++p, &p, 10);
+	min = strtoul_safe(++p, &p, 10);
 	if ((*p != ':' && *p) || min > 59)
 		goto fail;
 	else if (!*p)
 		goto ret;
 
-	sec = strtoul(++p, &p, 10);
+	sec = strtoul_safe(++p, &p, 10);
 	if (*p || sec > 59)
 		goto fail;
 
@@ -785,7 +785,7 @@ fw3_parse_weekdays(void *ptr, const char *val, bool is_list)
 	{
 		if (!parse_enum(&w, p, weekdays, 1, 7))
 		{
-			w = strtoul(p, &p, 10);
+			w = strtoul_safe(p, &p, 10);
 
 			if (*p || w < 1 || w > 7)
 			{
@@ -818,7 +818,7 @@ fw3_parse_monthdays(void *ptr, const char *val, bool is_list)
 
 	for (p = strtok(s, " \t"); p; p = strtok(NULL, " \t"))
 	{
-		d = strtoul(p, &p, 10);
+		d = strtoul_safe(p, &p, 10);
 
 		if (*p || d < 1 || d > 31)
 		{
@@ -863,7 +863,7 @@ fw3_parse_mark(void *ptr, const char *val, bool is_list)
 	if ((s = strchr(val, '/')) != NULL)
 		*s++ = 0;
 
-	n = strtoul(val, &e, 0);
+	n = strtoul_safe(val, &e, 0);
 
 	if (e == val || *e)
 		return false;
@@ -873,7 +873,7 @@ fw3_parse_mark(void *ptr, const char *val, bool is_list)
 
 	if (s)
 	{
-		n = strtoul(s, &e, 0);
+		n = strtoul_safe(s, &e, 0);
 
 		if (e == s || *e)
 			return false;
@@ -908,7 +908,7 @@ fw3_parse_dscp(void *ptr, const char *val, bool is_list)
 		return true;
 	}
 
-	n = strtoul(val, &e, 0);
+	n = strtoul_safe(val, &e, 0);
 
 	if (e == val || *e || n > 0x3F)
 		return false;
